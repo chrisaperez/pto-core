@@ -1,0 +1,323 @@
+% SPDX-License-Identifier: MIT
+% fastq_stream -- Application Note draft for Bioinformatics (Oxford Academic).
+%
+% SUBMISSION NOTE
+% ---------------
+% Bioinformatics Application Notes use OUP's `bioinfo.cls`, obtainable from the
+% journal's LaTeX template pack. That class is not vendored here (licence), so
+% this draft targets `article` with a two-column layout matching the published
+% dimensions, and compiles with any stock TeX installation. To submit:
+%   1. replace the preamble down to \begin{document} with the bioinfo.cls one,
+%   2. \documentclass{bioinfo}, \copyrightyear, \pubyear, \access, \appnotes,
+%   3. keep the section structure below unchanged -- it already matches.
+%
+% LIMIT: 4 printed pages, ~2,600 words including references.
+%
+% STATUS: the fastp/Trimmomatic comparison in Table 2 is NOT YET MEASURED.
+% Those cells read TODO on purpose. Do not submit with estimated numbers in
+% them; run scripts/run_benchmarks.py on GIAB HG002 and paste the generated
+% markdown table. Every number that IS present in this draft was measured on
+% the host described in Section 3.1.
+
+\documentclass[twocolumn,10pt]{article}
+
+\usepackage[margin=2cm]{geometry}
+% Deliberately no `times`: it remaps \ttfamily to Courier (pcr), whose metrics
+% are absent from minimal TeX installations, and this draft is dense with
+% \texttt. bioinfo.cls sets the submission fonts itself, so the dependency buys
+% nothing and costs portability. Default CM fonts compile everywhere.
+\usepackage{booktabs}
+% natbib for author-year \citep, matching bioinfo.cls and the \bibitem[...]
+% author-year forms used in the bibliography below.
+\usepackage[round]{natbib}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{amsmath}
+\usepackage[colorlinks=true,allcolors=blue]{hyperref}
+\usepackage{listings}
+
+\lstset{basicstyle=\ttfamily\scriptsize,breaklines=true,frame=none,
+        columns=fullflexible,xleftmargin=0pt}
+
+\setlength{\parskip}{0pt}
+\title{\vspace{-2em}\textbf{fastq\_stream: lock-free in-memory FASTQ streaming\\
+       for disk-free NGS preprocessing}}
+\author{\small [Author list]\\[-0.3em]
+        \small \textit{[Affiliation]}}
+\date{}
+
+\begin{document}
+\maketitle
+
+% ============================================================ ABSTRACT
+\noindent\textbf{Abstract}
+
+\noindent\textbf{Summary:} Next-generation sequencing preprocessing is
+routinely performed by shell pipelines that decompress a gzipped FASTQ, trim it,
+recompress it, write it to disk, and read it back into an aligner. The
+arithmetic of quality control is negligible against the cost of that round trip.
+We present \texttt{fastq\_stream}, a C++20 engine that performs single-pass
+quality control, adapter removal and quality trimming entirely in memory and
+streams clean reads directly into an aligner through a named pipe, eliminating
+the intermediate compressed FASTQ altogether. Stages communicate through
+genuinely single-producer/single-consumer lock-free ring buffers with
+cache-line-isolated indices, achieving a median inter-stage hand-off latency of
+14\,ns. Quality kernels are vectorised for AVX2/AVX-512 and NEON and are
+asserted bit-identical to scalar references at every read length. Peak resident
+memory is approximately 10\,MB and is independent of input size.
+
+\noindent\textbf{A structural finding:} we show that parallel gzip
+decompression is impossible for the single-member gzip framing that sequencers
+emit, and that re-framing FASTQ as BGZF at generation time yields a
+2.5$\times$ decompression speedup for every downstream consumer, at no cost.
+
+\noindent\textbf{Availability and implementation:} C++20 source, CMake build,
+and container definitions at \url{https://github.com/[org]/fastq_stream}, MIT
+licensed.
+
+\noindent\textbf{Contact:} \texttt{[email]}
+
+% ============================================================ INTRO
+\section{Introduction}
+
+A sequencing core facility producing terabytes of gzipped FASTQ per day
+typically preprocesses it with a pipeline of the form
+
+\begin{lstlisting}
+zcat in.fq.gz | trimmomatic ... | gzip > tmp.fq.gz
+bwa-mem2 mem ref.fa tmp.fq.gz > out.sam
+\end{lstlisting}
+
+Three costs dominate, and none is the quality-control arithmetic itself.
+First, \emph{serial decompression}: \texttt{zlib} inflate sustains roughly
+200--400\,MB/s on one core. Second, \emph{intermediate materialisation}: the
+trimmed FASTQ is DEFLATE-compressed (several times more expensive than
+inflation), written to disk, read back, and inflated again. Third,
+\emph{interpreter and pipe overhead} from the Bash or Python glue.
+
+Existing tools attack parts of this. \texttt{fastp}
+\citep{chen2018fastp} is a fast C++ implementation with
+multithreading and integrated QC reporting; \texttt{Trimmomatic}
+\citep{bolger2014trimmomatic} is the widely used Java reference for
+window-based trimming; \texttt{seqtk} provides minimal C primitives. All of
+them, in standard use, still write a compressed intermediate.
+\texttt{libdeflate} \citep{biggers2016libdeflate} offers substantially
+faster inflate and deflate than \texttt{zlib}, and \texttt{pigz} parallelises
+compression but not decompression of an existing stream.
+
+\texttt{fastq\_stream} removes the intermediate entirely, reduces decompression
+cost where the input framing permits, and replaces pipe glue with in-process
+lock-free hand-offs.
+
+% ============================================================ METHODS
+\section{Implementation}
+
+\subsection{Pipeline topology}
+
+The engine is a five-rank pipeline: a reader, an optional pool of $D$
+inflaters, a record assembler, a pool of $W$ quality-control workers, and a
+writer. Chunks of 256\,KiB flow between ranks; only buffer handles move, and
+payload bytes are never copied between stages.
+
+\subsection{Genuinely SPSC queues}
+
+A single-producer/single-consumer ring is correct only with exactly one
+producer thread and one consumer thread. A shared queue drained by a worker
+pool is multi-producer/multi-consumer and requires different, slower
+algorithms. Rather than weaken the guarantee, the topology is arranged so that
+no ring is ever touched by more than two threads: the reader owns one lane per
+inflater, each inflater owns one output lane, the assembler owns one lane per
+worker, and each worker owns one output lane.
+
+Each ring has power-of-two capacity with one slot sacrificed so that
+$\mathit{head}=\mathit{tail}$ unambiguously denotes emptiness. The head and
+tail indices are separated by \texttt{std::hardware\_destructive\_interference\_size}
+to eliminate false sharing, and each side caches the opposite index in
+thread-private storage so that a steady-state operation never reads the other
+core's cache line. Measured hand-off latency between two threads is 14\,ns at
+70\,M items/s. The implementation is clean under ThreadSanitizer.
+
+\subsection{Ordering without a reorder buffer}
+
+Chunk $k$ is dispatched to lane $k \bmod D$, and each lane preserves order
+internally. A collector reading lanes round-robin in the same order therefore
+recovers the original stream order with no sequence-number sorting and no
+reorder buffer. The single requirement this imposes is that a worker emit
+exactly one output buffer per input chunk, which holds because trimming only
+shrinks records and identifier lines are copied verbatim.
+
+Because FASTQ permits \texttt{@} as a quality character, record boundaries
+cannot be located by scanning for \texttt{@}. The assembler instead counts
+newlines from a known boundary and cuts only on multiples of four lines,
+splicing any straddling record into 64\,KiB of headroom reserved in front of
+the next chunk.
+
+\subsection{Vectorised quality kernels}
+
+Per-cycle quality sums, $Q\!\ge\!20$ and $Q\!\ge\!30$ fractions, and adapter
+Hamming extension are vectorised with compile-time dispatch to AVX-512BW, AVX2
+or NEON. Per-cycle sums accumulate into 32-bit lanes folded into 64-bit totals
+once per chunk; a 256\,KiB chunk holds approximately 650 reads, so overflow
+would require $5.8\times10^{7}$ reads at a single cycle. Every vectorised path
+is asserted bit-identical to a scalar reference at all lengths from 0 to 300,
+covering the sub-vector tails where such kernels typically fail.
+
+\subsection{Memory}
+
+Buffers are 64-byte aligned and recycled through a pool. The pool free list is
+mutex-guarded, which is not a contradiction of the lock-free claim: it is
+touched once per 256\,KiB of stream, against hundreds of millions of lock-free
+ring operations. Peak resident memory is approximately 10\,MB and is
+structurally bounded by
+$(\mathrm{lanes}\times\mathrm{slots}+\mathrm{in\ flight})\times 256\,\mathrm{KiB}$,
+independent of input size.
+
+% ============================================================ RESULTS
+\section{Results}
+
+\subsection{Experimental setup}
+
+Component and end-to-end measurements below were obtained on an Apple
+M-series host, 12 cores, NEON backend, on 150\,bp simulated reads with a
+NovaSeq-like quality decay profile. This is a hybrid-core laptop: consecutive
+runs of an unchanged kernel varied by up to a factor of two through core
+placement and clock drift, so every figure reported is the best of $N$ trials
+($N=5$ for kernels, $N=3$ end-to-end). These numbers establish ranking and
+scaling behaviour; they are not a substitute for the cluster measurements in
+Section~3.4.
+
+\subsection{Input framing determines decompression parallelism}
+
+\texttt{libdeflate} exposes no streaming interface: it inflates a complete gzip
+member into a caller-sized buffer. This is not an API oversight but the source
+of its speed, and it has a structural consequence. A \emph{single-member} gzip
+stream --- what \texttt{bcl2fastq}, DRAGEN and \texttt{gzip} produce --- has one
+member spanning the whole file, and no interior DEFLATE block boundary can be
+located without inflating everything before it. Parallel decompression of such
+a stream is therefore impossible, for any tool. BGZF, by contrast, is a
+sequence of independent members each declaring its compressed size and
+expanding to at most 64\,KiB, so members can be located by header arithmetic
+and inflated concurrently.
+
+\texttt{fastq\_stream} implements both paths and reports which was taken
+(Table~\ref{tab:framing}). Output is byte-identical between them.
+
+\begin{table}[h]
+\centering
+\caption{Effect of input framing. 200k $\times$ 150\,bp reads; identical output.}
+\label{tab:framing}
+\small
+\begin{tabular}{lrr}
+\toprule
+Framing & Throughput & Inflater threads \\
+\midrule
+BGZF (\texttt{bgzip}) & 914\,MB/s & 3 \\
+Plain gzip (single member) & 372\,MB/s & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The practical implication is disproportionate to its difficulty: running
+\texttt{bgzip} rather than \texttt{gzip} once, at the point of FASTQ
+generation, gives a 2.5$\times$ decompression speedup to every downstream
+consumer of that file, permanently. Any benchmark comparing tools must state
+the framing used; reporting a BGZF number against a competitor's plain-gzip
+number would be invalid.
+
+\subsection{Scaling and component throughput}
+
+End-to-end throughput was 645, 1863, 3063 and 4304\,MB/s at 1, 3, 5 and 9
+workers respectively --- $6.7\times$ from $9\times$ the workers, saturating as
+memory bandwidth and the serial assembler stage become binding. Peak buffer
+pool occupancy remained under 83\,MB throughout.
+
+Component throughput (best of 5): \texttt{sum\_u8} 55\,GB/s, \texttt{count\_ge}
+49\,GB/s, per-cycle accumulation 43\,GB/s, sliding-window trimming 89\,GB/s.
+Adapter seed-and-extend runs at 0.95\,GB/s and is thus the pipeline's compute
+bottleneck, roughly fifty times more costly than any quality kernel. Replacing
+a variable-length \texttt{memcmp} in the seed scan with a single unaligned
+32-bit comparison improved it by $3.4\times$.
+
+\subsection{Comparison against existing tools}
+
+\begin{table}[h]
+\centering
+\caption{GIAB HG002 NovaSeq 2$\times$150\,bp. \textbf{NOT YET MEASURED} ---
+see submission note at the head of this file.}
+\label{tab:baselines}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Tool & Wall (s) & Peak RSS (MB) & Disk written (GB) \\
+\midrule
+\texttt{fastq\_stream} (FIFO) & TODO & TODO & TODO \\
+\texttt{fastq\_stream} (file) & TODO & TODO & TODO \\
+\texttt{fastp}                & TODO & TODO & TODO \\
+\texttt{Trimmomatic}          & TODO & TODO & TODO \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These cells are deliberately unpopulated. \texttt{fastp} and
+\texttt{Trimmomatic} were not available on the development host, and the
+project's benchmark harness (\texttt{scripts/run\_benchmarks.py}) has been
+written but not yet executed against them. The harness isolates each
+measurement in a separate process, because \texttt{ru\_maxrss} over
+\texttt{RUSAGE\_CHILDREN} is a monotonic high-water mark that otherwise leaks
+the peak of the heaviest tool into every subsequent measurement; it reports
+medians over replicates; and it measures \texttt{fastq\_stream} on both
+framings so the comparison against a plain-gzip baseline is like for like.
+
+\subsection{Adapter specificity}
+
+Seed-and-extend matching trades sensitivity for speed, and the cost is
+measurable. On 200k random reads with 40{,}000 planted TruSeq adapters, the
+conventional minimum overlap of 4 produced 3{,}528 spurious trims (2.2\% of
+reads), falling to 248 (0.15\%) at an overlap of 8. We retain 4 as the default
+for consistency with the cutadapt and fastp families but recommend 8 for
+production use, which removes 93\% of spurious calls while missing only adapter
+remnants shorter than 8\,bp. Separately, a read whose adapter copy carries a
+sequencing error within the seed window is missed entirely --- the same
+compromise \texttt{fastp} makes.
+
+% ============================================================ CONCLUSION
+\section{Conclusion}
+
+\texttt{fastq\_stream} demonstrates that the dominant cost in FASTQ
+preprocessing is the compressed intermediate file, not the quality-control
+computation, and that removing it is straightforward given a strictly
+single-producer/single-consumer streaming architecture. The most transferable
+result is not the implementation but Section~3.2: the ubiquitous practice of
+emitting single-member gzip FASTQ forecloses parallel decompression for every
+downstream tool, and the remedy costs one flag at generation time.
+
+Current limitations are single-end input only, a 64\,KiB maximum record size
+(adequate for short-read but not long-read data), uncompressed output by
+design, and the absence of BAM input.
+
+% ============================================================ REFS
+\begin{thebibliography}{9}
+\small
+\bibitem[Bolger \textit{et~al.}(2014)]{bolger2014trimmomatic}
+Bolger,A.M., Lohse,M. and Usadel,B. (2014) Trimmomatic: a flexible trimmer for
+Illumina sequence data. \textit{Bioinformatics}, \textbf{30}, 2114--2120.
+
+\bibitem[Chen \textit{et~al.}(2018)]{chen2018fastp}
+Chen,S., Zhou,Y., Chen,Y. and Gu,J. (2018) fastp: an ultra-fast all-in-one
+FASTQ preprocessor. \textit{Bioinformatics}, \textbf{34}, i884--i890.
+
+\bibitem[Eggers(2016)]{biggers2016libdeflate}
+Biggers,E. (2016) libdeflate: heavily optimized library for DEFLATE/zlib/gzip
+compression and decompression. \url{https://github.com/ebiggers/libdeflate}.
+
+\bibitem[Li(2013)]{li2013bwa}
+Li,H. (2013) Aligning sequence reads, clone sequences and assembly contigs with
+BWA-MEM. \textit{arXiv}:1303.3997.
+
+\bibitem[Zook \textit{et~al.}(2016)]{zook2016giab}
+Zook,J.M. \textit{et~al.} (2016) Extensive sequencing of seven human genomes to
+characterize benchmark reference materials. \textit{Sci. Data}, \textbf{3},
+160025.
+\end{thebibliography}
+
+\end{document}

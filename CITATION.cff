@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it using the metadata below.
+title: "pto-core: High-Throughput Omics C++ Engine and Python Interface"
+abstract: >-
+  Five independently-developed C++20 engines for single-cell and epigenomic
+  data, vendored into one repository so they can be built, tested and
+  reviewed together: streaming FASTQ QC and adapter/quality trimming
+  (fastq_stream), streaming fragment QC with duplicate rate and FRiP
+  (genomic_toolkit), CUT&Tag/CUT&RUN reference-point signal profiling
+  (cuttag_profiler), a streaming epigenomic peak caller (peaks), and a
+  cache-aligned sparse-matrix engine with SIMD and HNSW k-NN for single-cell
+  analysis (scrna_matrix). Each tool runs on the machine that already holds
+  the sequencing data, with no service dependency and no data leaving the
+  host. The Python interface is distributed as the `pto-core` package
+  (`scrna-matrix` ships separately due to its OpenMP requirement).
+type: software
+authors:
+  - name: "pto-core contributors"
+repository-code: "https://github.com/chrisaperez/pto-core"
+url: "https://github.com/chrisaperez/pto-core"
+license: MIT
+version: 0.1.5
+date-released: "2026-09-11"
+keywords:
+  - bioinformatics
+  - genomics
+  - cpp
+  - single-cell
+  - hpc

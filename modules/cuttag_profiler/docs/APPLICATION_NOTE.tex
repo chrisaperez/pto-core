@@ -1,0 +1,341 @@
+% Application Note for Bioinformatics (Oxford Academic).
+%
+% Target: 4 printed pages, Applications Note category.
+%
+% Oxford supplies a class file with its author kit; this document deliberately
+% uses stock `article` so it compiles anywhere, and mirrors the Applications
+% Note section order (Abstract / 1 Introduction / 2 Methods / 3 Results /
+% 4 Discussion / Availability). Swap \documentclass for the journal class at
+% submission time; no body text should need to change.
+%
+% Build:  latexmk -pdf docs/APPLICATION_NOTE.tex
+%
+% -------------------------------------------------------------------------
+% EVERY NUMBER IN THIS PAPER COMES FROM A MEASURED RUN.
+% The macros below are the single source of truth; they are transcribed from
+% results/summary.txt and results/accuracy.txt, produced by
+% scripts/benchmark.sh. Re-run the benchmark and update this block -- never
+% edit a figure inline in the body text.
+% -------------------------------------------------------------------------
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{natbib}
+
+% Deliberately core-LaTeX only: this compiles on a stock BasicTeX/TeX Live
+% minimal install with no package downloads, which matters when the build host
+% has no outbound network. siunitx and authblk are not assumed.
+
+% --- Measured results (see header note) -----------------------------------
+\newcommand{\NumRegions}{100{,}000}
+\newcommand{\NumFragments}{4}            % million fragments
+\newcommand{\NumAlignments}{8}           % million alignments
+\newcommand{\BamSize}{87}                % MB
+\newcommand{\NumCores}{12}
+\newcommand{\WindowSpec}{$\pm$2\,kb}
+\newcommand{\BinSize}{50}
+
+\newcommand{\OursTime}{1.42}
+\newcommand{\OursMem}{84.7}
+\newcommand{\CovTime}{7.11}
+\newcommand{\CovMem}{320.7}
+\newcommand{\MatTime}{43.06}
+\newcommand{\MatMem}{432.4}
+\newcommand{\TotalTime}{50.17}
+\newcommand{\SpeedupTotal}{35.4}
+\newcommand{\SpeedupMatrix}{30.4}
+\newcommand{\MemRatio}{5.1}
+
+\newcommand{\ProfileR}{0.99999}
+\newcommand{\MaxResidual}{0.38\%}
+\newcommand{\MedianRowR}{0.988}
+\newcommand{\FracAbove}{99.8\%}
+
+
+\title{\vspace{-1.5cm}\textbf{cuttag\_profiler: air-gapped CUT\&Tag signal
+profiling with an embedded browser dashboard}}
+
+\author{Author One \and Author Two \\[2pt]
+\small Department, Institution, City, Country}
+
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-1cm}
+
+\begin{abstract}
+\noindent\textbf{Summary:} Chromatin profiling assays such as CUT\&Tag and
+CUT\&RUN are read out by quantifying normalised coverage over large sets of
+genomic loci. The established tool for this step, \texttt{deeptools}, requires
+a two-stage pipeline and a command-line interface, and takes tens of minutes on
+a genome-scale locus set. Interactive alternatives are typically web services,
+which many clinical and industrial laboratories cannot use because aligned
+sequence data may not leave the premises. We present \texttt{cuttag\_profiler},
+a single statically linked C\texttt{++}20 binary that computes reference-point
+signal matrices directly from an indexed BAM and serves an interactive
+dashboard from an embedded HTTP server bound to the loopback interface. On
+\NumRegions{} promoter windows it is \SpeedupTotal$\times$ faster than the
+equivalent \texttt{deeptools} pipeline while using \MemRatio$\times$ less
+memory, and reproduces its meta-profile with a Pearson correlation of
+\ProfileR. No byte of sequence data crosses a network boundary.
+
+\smallskip
+\noindent\textbf{Availability and implementation:} Source, build instructions
+and the benchmark harness are available at
+\url{https://github.com/ORGANISATION/cuttag_profiler} under the MIT licence.
+The binary depends only on \texttt{htslib} and the platform C library.
+
+\smallskip
+\noindent\textbf{Contact:} \url{author@institution.edu}
+\end{abstract}
+
+\section{Introduction}
+
+CUT\&Tag \citep{kayajaya2019} and CUT\&RUN \citep{skene2017} localise a histone
+modification or transcription factor by tethering an enzyme to a target-bound
+antibody. Downstream interpretation almost always reduces to the same
+operation: for each of $N$ loci, compute normalised read coverage in $B$ bins
+across a fixed window anchored on a reference point such as a transcription
+start site, then summarise the resulting $N \times B$ matrix as a meta-profile
+and a heatmap.
+
+Two practical problems attach to that operation.
+
+First, cost. The \texttt{deeptools} suite \citep{ramirez2016} performs it in two
+stages: \texttt{bamCoverage} converts the BAM into a bigWig coverage track, and
+\texttt{computeMatrix} windows that track. Each stage rewrites the data, and the
+intermediate track is written at genome scale even when the loci of interest
+cover a small fraction of the genome.
+
+Second, access. The scientists who interpret these matrices are usually not the
+scientists who can operate a command line, and the interactive tools that close
+that gap are predominantly hosted services. Laboratories operating under
+GDPR, HIPAA or an institutional data-governance policy frequently prohibit
+transmitting aligned human sequence data to third-party infrastructure, which
+disqualifies hosted viewers regardless of their merits.
+
+\texttt{cuttag\_profiler} addresses both. It computes the matrix in one pass
+directly from the indexed BAM, and it ships its own dashboard inside the
+executable, served over the loopback interface only.
+
+\section{Methods}
+
+\subsection{Architecture}
+
+The tool is a single C\texttt{++}20 executable with no runtime dependency
+beyond \texttt{htslib} and the platform C library; \texttt{htslib} is linked
+statically, so deployment is a file copy. It has two modes: a headless
+\texttt{profile} subcommand for pipelines, and a \texttt{serve} subcommand that
+starts the dashboard.
+
+\subsection{Parallel indexed query}
+
+Work is distributed one locus per task over a pool of worker threads, block
+partitioned so that each worker writes a contiguous stripe of the output matrix.
+\texttt{htslib}'s index and header are immutable once loaded and are shared;
+its \texttt{htsFile} handles carry mutable decompression state and are not, so
+each worker leases a private handle from a pool.
+
+A design decision worth recording is what \emph{not} to share. \texttt{htslib}
+offers a thread pool that parallelises BGZF block inflation, and the intuitive
+configuration is one pool sized to the machine. For this access pattern that is
+actively harmful: with per-region parallelism already saturating the cores,
+routing every block through a shared pool serialises inflation behind the
+pool's queue and adds a hand-off per block. Measured on the benchmark below, a
+\NumCores-thread shared pool cost 5.95\,s wall time against
+1.38\,s with no pool at all, and consumed 52\,s of CPU
+against 6.4\,s. The default is therefore no shared pool: each
+handle inflates on the thread that owns it. A pool is created only when the
+caller explicitly requests single-threaded operation, where it can still
+overlap inflation within one query.
+
+Per-thread reduction buffers are allocated on 64\,byte boundaries and
+padded to whole cache lines, so no two workers share a line while accumulating
+column sums.
+
+\subsection{Signal quantification}
+
+For a locus with anchor $a$, the window $[a - u, a + d)$ is divided into
+$B = \lceil (u+d)/w \rceil$ bins of width $w$. For minus-strand features the
+window is mirrored and the resulting row reversed, so that bin index always
+runs $5' \rightarrow 3'$.
+
+Each alignment contributes to the bins its reference span overlaps. For
+properly paired data the span is the full sequenced fragment, inferred from
+\texttt{TLEN} and counted once through the leftmost mate; this is the correct
+footprint for CUT\&Tag, where the fragment marks the protected region. Because
+a fragment may begin before the window and still intersect it, the underlying
+iterator query is widened to the left by the maximum fragment length; omitting
+this silently truncates signal at window edges.
+
+Two tallies are accumulated per bin: the number of overlapping fragments, and
+the number of aligned bases, the latter honouring the CIGAR string so that
+deletions and reference skips do not inflate coverage. Reported signal is
+either fragments per bin (the default, matching \texttt{deeptools}) or mean
+per-base depth. Normalisation is one of raw, CPM, RPKM or BPM; the library
+size used as the denominator is read from the index metadata in
+$O(\text{contigs})$ rather than by streaming the file.
+
+\subsection{Embedded dashboard}
+
+\texttt{serve} starts an HTTP server (\texttt{cpp-httplib}) bound to
+\texttt{127.0.0.1} and opens the user's browser. Three properties enforce the
+air gap:
+
+\begin{enumerate}\itemsep2pt
+  \item the listener refuses to bind a non-loopback address unless the operator
+        passes an explicit override flag, which also prints a warning;
+  \item every asset is served from a byte array compiled into the binary by a
+        CMake generator step, so no CDN, font host or analytics endpoint is
+        contacted;
+  \item responses carry \texttt{Content-Security-Policy: default-src 'self'},
+        so even a modified asset has no route out.
+\end{enumerate}
+
+The dashboard posts a JSON query description to \texttt{/api/profile} and
+receives the meta-profile, a band-averaged heatmap and run statistics. Full
+matrices are retrieved separately as TSV, keyed by a run token, rather than
+serialised into every interactive response.
+
+\section{Results}
+
+\subsection{Benchmark design}
+
+We compared against \texttt{deeptools} \texttt{computeMatrix reference-point}.
+Because \texttt{computeMatrix} consumes a bigWig rather than a BAM, the
+comparable unit of work is the two-stage pipeline an analyst actually runs:
+\texttt{bamCoverage} followed by \texttt{computeMatrix}. Both stages are timed,
+and the speedup is quoted against their sum; the \texttt{computeMatrix} stage is
+also reported alone, which is the appropriate comparison for a reader who
+already holds a cached coverage track.
+
+The dataset is a synthetic paired-end CUT\&Tag library of \NumFragments{}
+million fragments (\NumAlignments{} million alignments, \BamSize{}~MB BAM) over
+a 250\,Mb chromosome, with \NumRegions{} annotated promoters, of
+which 55\% of fragments are drawn from a TSS-centred peak
+($\sigma = 180\,bp$) and the remainder from uniform background. It is
+generated by \texttt{scripts/make\_demo\_data.py} at a fixed seed, so the
+benchmark is reproducible without redistributing controlled-access data. Both
+tools were given \NumCores{} threads and \WindowSpec{} windows in
+\BinSize\,bp bins, three replicates each, on an Apple M-series
+workstation.
+
+\subsection{Runtime and memory}
+
+\begin{table}[htbp]
+\centering
+\caption{Wall-clock time and peak resident memory over \NumRegions{} promoter
+windows, \NumCores{} threads, mean of three replicates.}
+\label{tab:benchmark}
+\begin{tabular}{lrr}
+\toprule
+Stage & Time (s) & Peak RSS (MB) \\
+\midrule
+\texttt{cuttag\_profiler} (BAM $\rightarrow$ matrix) & \OursTime & \OursMem \\
+\midrule
+\texttt{deeptools bamCoverage} (BAM $\rightarrow$ bigWig) & \CovTime & \CovMem \\
+\texttt{deeptools computeMatrix} (bigWig $\rightarrow$ matrix) & \MatTime & \MatMem \\
+\textit{deeptools pipeline total} & \textit{\TotalTime} & \textit{\MatMem} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:benchmark} gives \SpeedupTotal$\times$ end-to-end and
+\SpeedupMatrix$\times$ against \texttt{computeMatrix} alone, at
+\MemRatio$\times$ lower peak memory. The memory difference follows from the
+architecture: no genome-wide intermediate track is materialised, so resident
+memory scales with the requested matrix rather than with the genome.
+
+\subsection{Concordance with \texttt{deeptools}}
+
+Agreement was assessed on the same matrices
+(\texttt{scripts/compare\_matrices.py}). The two tools normalise against
+different denominators --- \texttt{deeptools} scales binned coverage derived
+from a bigWig, \texttt{cuttag\_profiler} scales fragment counts taken directly
+from the BAM --- so the tools are interchangeable if and only if the signal
+\emph{shape} matches up to one global scale factor, which is what we test.
+
+The meta-profiles correlate at $r = \ProfileR$, with a maximum residual of
+\MaxResidual{} of peak signal after fitting a single global scale factor.
+Per-locus agreement, over a systematic sample of matched rows, has median
+$r = \MedianRowR$, and \FracAbove{} of loci exceed $r = 0.95$. Residual
+disagreement is attributable to the intermediate binning \texttt{deeptools}
+performs when building the bigWig, which the direct query avoids.
+
+\section{Discussion}
+
+The speedup has a structural rather than a micro-optimisation explanation.
+\texttt{deeptools} materialises a genome-wide coverage track and then windows
+it, so its cost scales with genome size; \texttt{cuttag\_profiler} queries only
+the intervals requested, so its cost scales with the loci of interest. Whenever
+those loci cover a modest fraction of the genome --- the usual case for
+promoter, enhancer or peak-set analyses --- the direct query does
+proportionally less work. The gap narrows when the locus set approaches whole
+genome coverage, and a cached bigWig that is reused across many locus sets
+amortises the conversion, which is why Table~\ref{tab:benchmark} reports the
+stages separately.
+
+Two limitations should be stated. The benchmark uses simulated data, chosen so
+the comparison is reproducible without redistributing controlled-access
+alignments; the concordance analysis, not an absolute enrichment value, is what
+the simulation is asked to support. Second, BPM normalisation is computed over
+the supplied locus set rather than genome-wide, since no genome-wide pass is
+performed; where a genome-wide BPM denominator is required, CPM or RPKM should
+be used instead.
+
+The design generalises past CUT\&Tag: nothing in the query or scoring layer is
+assay-specific, and the same binary profiles ChIP-seq or ATAC-seq alignments.
+The air-gap property is the part we would emphasise for adoption. A tool that
+is fast but requires a data-transfer agreement is, in a regulated laboratory,
+not usable at all; one that runs entirely on the analyst's own workstation
+needs no such agreement.
+
+\section*{Acknowledgements}
+
+We thank the \texttt{htslib} and \texttt{deeptools} developers, whose work this
+tool builds on and measures itself against.
+
+\section*{Funding}
+
+This work was supported by [funder, grant number].
+
+\begin{thebibliography}{9}
+
+\bibitem[Kaya-Okur \textit{et al.}(2019)]{kayajaya2019}
+Kaya-Okur,~H.S. \textit{et al.} (2019)
+CUT\&Tag for efficient epigenomic profiling of small samples and single cells.
+\textit{Nat. Commun.}, \textbf{10}, 1930.
+
+\bibitem[Skene and Henikoff(2017)]{skene2017}
+Skene,~P.J. and Henikoff,~S. (2017)
+An efficient targeted nuclease strategy for high-resolution mapping of DNA
+binding sites. \textit{eLife}, \textbf{6}, e21856.
+
+\bibitem[Ram{\'i}rez \textit{et al.}(2016)]{ramirez2016}
+Ram{\'i}rez,~F. \textit{et al.} (2016)
+deepTools2: a next generation web server for deep-sequencing data analysis.
+\textit{Nucleic Acids Res.}, \textbf{44}, W160--W165.
+
+\bibitem[Bonfield \textit{et al.}(2021)]{bonfield2021}
+Bonfield,~J.K. \textit{et al.} (2021)
+HTSlib: C library for reading/writing high-throughput sequencing data.
+\textit{GigaScience}, \textbf{10}, giab007.
+
+\bibitem[Li \textit{et al.}(2009)]{li2009}
+Li,~H. \textit{et al.} (2009)
+The Sequence Alignment/Map format and SAMtools.
+\textit{Bioinformatics}, \textbf{25}, 2078--2079.
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,88 @@
+# UndefinedBehaviorSanitizer suppressions for pto-core.
+#
+# SCOPE DISCIPLINE -- identical to docker/tsan.supp.
+#
+# This file may only suppress reports whose failing frame is in code we neither
+# wrote nor can change without a worse consequence. It must never be used to
+# silence a report in modules/*/src or modules/*/include. If first-party UB
+# shows up, fix the UB.
+#
+# Every entry states what it covers, why it is not fixed, and what would make it
+# fixable. Suppressing something because it was noisy is how a sanitizer stops
+# being a control.
+#
+# Used with: UBSAN_OPTIONS=suppressions=docker/ubsan.supp
+# Note the runtime needs `halt_on_error` / `-fno-sanitize-recover` to make
+# anything NOT listed here fatal -- a suppression file alone changes nothing if
+# UBSan is still in print-and-continue mode.
+
+# ---------------------------------------------------------------------------
+# 1. hnswlib: misaligned `labeltype *` in getExternalLabeLp().  UPSTREAM, and
+#    deliberately NOT fixed -- fixing it would break the on-disk index format.
+#
+#    hnswalg.h:1242 stores through a pointer formed as
+#        data_level0_memory_ + id * size_data_per_element_ + label_offset_
+#    typed `labeltype *` (8-byte alignment required). With the default M=16,
+#        size_links_level0_ = maxM0_ * 4 + 4 = 132
+#    which is not a multiple of 8, so the address is 4-byte aligned for EVERY
+#    dimension and EVERY element. Verified by computing label_offset_ for dims
+#    8/16/32/50/64: none is 8-aligned.
+#
+#        runtime error: store to misaligned address ... for type 'labeltype *'
+#
+#    Benign on x86-64 and arm64, which permit unaligned 8-byte access. It is UB
+#    in the abstract machine, not a fault on any target this project builds for.
+#
+#    WHY NOT FIXED. Padding size_links_level0_ to an 8-byte multiple changes
+#    size_data_per_element_, hence the byte layout of data_level0_memory_, hence
+#    the payload that hnswlib's saveIndex/loadIndex serialise. That would
+#    silently invalidate every .hnsw file written by matrix/hnsw_index.hpp and
+#    break the on-disk format it just introduced. A benign alignment diagnostic
+#    is the cheaper of the two.
+#
+#    Full reasoning: third_party/hnswlib/VERSION.txt, entry 4.
+#    Revisit when the index format version is bumped for another reason, or if a
+#    target that traps on unaligned access is ever supported.
+alignment:hnswalg.h
+
+# ---------------------------------------------------------------------------
+# 2. hnswlib: pointer-overflow in the SSE prefetch loops.  UPSTREAM, inherent.
+#
+#    searchBaseLayer / searchBaseLayerST prefetch one candidate ahead:
+#
+#        for (size_t j = 0; j < size; j++) {
+#            tableint candidate_id = *(datal + j);
+#            _mm_prefetch((char *) (visited_array + *(datal + j + 1)), ...);
+#
+#    At j == size - 1 the index loaded is whatever happens to sit after the link
+#    array -- adjacent element data, or the zeroed slack this fork appends. It is
+#    not a meaningful element id, and `visited_array + <that>` or
+#    `data_level0_memory_ + <that> * size_data_per_element_` overflows the
+#    pointer computation:
+#
+#        runtime error: addition of unsigned offset to 0x... overflowed to 0x...
+#        hnswalg.h:457
+#
+#    This is by design. A prefetch is a hint; `_mm_prefetch` never faults, and
+#    upstream deliberately reads one ahead without bounds-checking a hot loop.
+#    The garbage index cannot be avoided by allocating more -- the value is
+#    meaningless wherever it comes from -- so unlike the heap-buffer-overflow
+#    (fixed with kPrefetchSlackBytes, VERSION.txt entry 3) there is nothing to
+#    repair without branching in three inner loops.
+#
+#    x86-only: the whole block is #ifdef USE_SSE.
+#
+#    NOTE what is NOT suppressed: AddressSanitizer stays fully active on
+#    hnswalg.h. That is deliberate and load-bearing. The residual in
+#    modules/scrna_matrix/docs/AUDIT.md is that a hostile .hnsw payload is
+#    consumed by unaudited hnswlib graph code, and ASan is the one automated
+#    check that would catch an overflow there. Suppressing UBSan's two
+#    prefetch-idiom classes costs nothing against that threat; an ASan
+#    ignorelist for this file would have gutted it.
+pointer-overflow:hnswalg.h
+
+# Deliberately NOT suppressed here, so they stay fatal:
+#   * any alignment report outside hnswalg.h
+#   * signed-integer-overflow anywhere (that class of bug has bitten this repo
+#     twice already -- ProfileOptions::window_length and bin_count)
+#   * every other UBSan check, in first-party and vendored code alike

@@ -1,0 +1,444 @@
+{
+  "host": {
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "cores": 12
+  },
+  "generated": 1786964798.379191,
+  "repeats": 2,
+  "results": [
+    {
+      "benchmark": "fastq_stream/trim",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 23285383,
+      "threads": 1,
+      "repeats": [
+        {
+          "wall_seconds": 0.23412712500430644,
+          "user_seconds": 0.6267349999999999,
+          "system_seconds": 0.149556,
+          "peak_rss_bytes": 14008320,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 49,
+          "involuntary_switches": 3644,
+          "returncode": 0,
+          "output_bytes": 0
+        },
+        {
+          "wall_seconds": 0.22004679199744714,
+          "user_seconds": 0.638462,
+          "system_seconds": 0.140787,
+          "peak_rss_bytes": 14024704,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 43,
+          "involuntary_switches": 2306,
+          "returncode": 0,
+          "output_bytes": 0
+        }
+      ],
+      "skipped": ""
+    },
+    {
+      "benchmark": "fastq_stream/trim",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 23285383,
+      "threads": 1,
+      "repeats": [
+        {
+          "wall_seconds": 1.9624760419974336,
+          "user_seconds": 2.043658,
+          "system_seconds": 0.165351,
+          "peak_rss_bytes": 1185185792,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 35,
+          "involuntary_switches": 8120,
+          "returncode": 0,
+          "output_bytes": 0
+        },
+        {
+          "wall_seconds": 1.8535869580009603,
+          "user_seconds": 1.953228,
+          "system_seconds": 0.144981,
+          "peak_rss_bytes": 1185218560,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 53,
+          "involuntary_switches": 6763,
+          "returncode": 0,
+          "output_bytes": 0
+        }
+      ],
+      "skipped": ""
+    },
+    {
+      "benchmark": "fastq_stream/trim",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 23285383,
+      "threads": 2,
+      "repeats": [
+        {
+          "wall_seconds": 0.23035470899776556,
+          "user_seconds": 0.656937,
+          "system_seconds": 0.148979,
+          "peak_rss_bytes": 14008320,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 47,
+          "involuntary_switches": 3683,
+          "returncode": 0,
+          "output_bytes": 0
+        },
+        {
+          "wall_seconds": 0.21838258399657207,
+          "user_seconds": 0.657355,
+          "system_seconds": 0.12536,
+          "peak_rss_bytes": 13991936,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 50,
+          "involuntary_switches": 843,
+          "returncode": 0,
+          "output_bytes": 0
+        }
+      ],
+      "skipped": ""
+    },
+    {
+      "benchmark": "fastq_stream/trim",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 23285383,
+      "threads": 2,
+      "repeats": [
+        {
+          "wall_seconds": 1.7297735829997691,
+          "user_seconds": 2.235934,
+          "system_seconds": 0.14374199999999998,
+          "peak_rss_bytes": 1191837696,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 3,
+          "involuntary_switches": 6227,
+          "returncode": 0,
+          "output_bytes": 0
+        },
+        {
+          "wall_seconds": 1.6988827500026673,
+          "user_seconds": 2.132432,
+          "system_seconds": 0.14277299999999998,
+          "peak_rss_bytes": 1192198144,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 2,
+          "involuntary_switches": 5239,
+          "returncode": 0,
+          "output_bytes": 0
+        }
+      ],
+      "skipped": ""
+    },
+    {
+      "benchmark": "fastq_stream/trim",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 23285383,
+      "threads": 4,
+      "repeats": [
+        {
+          "wall_seconds": 0.21289504200103693,
+          "user_seconds": 0.66596,
+          "system_seconds": 0.109703,
+          "peak_rss_bytes": 13746176,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 10,
+          "involuntary_switches": 331,
+          "returncode": 0,
+          "output_bytes": 0
+        },
+        {
+          "wall_seconds": 0.21445529100310523,
+          "user_seconds": 0.666111,
+          "system_seconds": 0.11026899999999999,
+          "peak_rss_bytes": 18546688,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 41,
+          "involuntary_switches": 388,
+          "returncode": 0,
+          "output_bytes": 0
+        }
+      ],
+      "skipped": ""
+    },
+    {
+      "benchmark": "fastq_stream/trim",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 23285383,
+      "threads": 4,
+      "repeats": [
+        {
+          "wall_seconds": 1.6463083339986042,
+          "user_seconds": 2.534509,
+          "system_seconds": 0.141264,
+          "peak_rss_bytes": 1209679872,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 43,
+          "involuntary_switches": 4270,
+          "returncode": 0,
+          "output_bytes": 0
+        },
+        {
+          "wall_seconds": 1.7751694170001429,
+          "user_seconds": 2.596976,
+          "system_seconds": 0.180994,
+          "peak_rss_bytes": 1208565760,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 62,
+          "involuntary_switches": 10623,
+          "returncode": 0,
+          "output_bytes": 0
+        }
+      ],
+      "skipped": ""
+    },
+    {
+      "benchmark": "fastq_stream/trim",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 23285383,
+      "threads": 8,
+      "repeats": [
+        {
+          "wall_seconds": 0.10821945800125832,
+          "user_seconds": 0.541908,
+          "system_seconds": 0.158664,
+          "peak_rss_bytes": 9043968,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 63,
+          "involuntary_switches": 3874,
+          "returncode": 0,
+          "output_bytes": 0
+        },
+        {
+          "wall_seconds": 0.11133574999985285,
+          "user_seconds": 0.48905899999999997,
+          "system_seconds": 0.17063599999999998,
+          "peak_rss_bytes": 12582912,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 51,
+          "involuntary_switches": 6759,
+          "returncode": 0,
+          "output_bytes": 0
+        }
+      ],
+      "skipped": ""
+    },
+    {
+      "benchmark": "fastq_stream/trim",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 23285383,
+      "threads": 8,
+      "repeats": [
+        {
+          "wall_seconds": 1.7764513340007397,
+          "user_seconds": 2.635088,
+          "system_seconds": 0.24664599999999998,
+          "peak_rss_bytes": 1236762624,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 0,
+          "involuntary_switches": 20793,
+          "returncode": 0,
+          "output_bytes": 0
+        },
+        {
+          "wall_seconds": 1.725330875000509,
+          "user_seconds": 2.643387,
+          "system_seconds": 0.243086,
+          "peak_rss_bytes": 1236942848,
+          "block_reads": 0,
+          "block_writes": 0,
+          "voluntary_switches": 1,
+          "involuntary_switches": 19571,
+          "returncode": 0,
+          "output_bytes": 0
+        }
+      ],
+      "skipped": ""
+    },
+    {
+      "benchmark": "genomic_toolkit/frip",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 1,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/frip",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 1,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/frip",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 2,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/frip",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 2,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/frip",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 4,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/frip",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 4,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/frip",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 8,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/frip",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 8,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/sizes",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 8,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "genomic_toolkit/sizes",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 8,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "cuttag_profiler/profile",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 1,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "cuttag_profiler/profile",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 1,
+      "repeats": [],
+      "skipped": "bamCoverage is not on PATH"
+    },
+    {
+      "benchmark": "cuttag_profiler/profile",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 2,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "cuttag_profiler/profile",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 2,
+      "repeats": [],
+      "skipped": "bamCoverage is not on PATH"
+    },
+    {
+      "benchmark": "cuttag_profiler/profile",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 4,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "cuttag_profiler/profile",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 4,
+      "repeats": [],
+      "skipped": "bamCoverage is not on PATH"
+    },
+    {
+      "benchmark": "cuttag_profiler/profile",
+      "variant": "bioflux",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 8,
+      "repeats": [],
+      "skipped": "input 'bam' is not staged. Stage it with:\n    tests/validation/run_validation.py fetch --allow-download"
+    },
+    {
+      "benchmark": "cuttag_profiler/profile",
+      "variant": "baseline",
+      "input_key": "small",
+      "input_bytes": 0,
+      "threads": 8,
+      "repeats": [],
+      "skipped": "bamCoverage is not on PATH"
+    }
+  ]
+}

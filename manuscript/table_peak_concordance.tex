@@ -1,0 +1,48 @@
+% table_peak_concordance.tex
+% Source: reports/peaks_concordance_metrics.json,
+%         pto-core/modules/peaks/CONCORDANCE.md
+% Dataset: ENCODE ATAC-seq \EncodeAccession{} (\EncodeBamAccession{}.bam),
+% \EncodeFragments{} fragments, GRCh38, vs MACS3 3.0.4 (-f BAMPE -q 0.05).
+\begin{table}[t]
+\centering
+\caption{pto-peaks vs.\ MACS3 on real ENCODE K562 ATAC-seq. The pre-registered
+parity bar (\ParityGate{} on both gated metrics) is stated alongside the
+result it was measured against, not omitted.}
+\label{tab:peak-concordance}
+\footnotesize
+\begin{tabular}{lrrl}
+\toprule
+Metric & Value & Parity gate & Met? \\
+\midrule
+Total MACS3 peaks & \NumMacsPeaks{} & --- & --- \\
+Total pto-peaks peaks & \NumPtoPeaks{} & --- & --- \\
+IoU-matched pairs & \NumMatchedPeaks{} & --- & --- \\
+Summit within 50\,bp & \SummitOverlapRate{} & $\geq \ParityGate{}$ & \textbf{No} \\
+Spearman $r$, $-\log_{10}p$ & \SpearmanLogP{} & $\geq \ParityGate{}$ & \textbf{No} \\
+Mean IoU & \MeanIoU{} & not gated & --- \\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+\begin{tabular}{lrrr}
+\toprule
+Caller & Median width (bp) & p10 & p90 \\
+\midrule
+pto-peaks (defaults) & \PtoMedianWidth{} & \PtoPTen{} & \PtoPNinety{} \\
+MACS3 & \MacsMedianWidth{} & \MacsPTen{} & \MacsPNinety{} \\
+ENCODE (replicated, pooled) & \EncodeMedianWidth{} & --- & --- \\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\multicolumn{2}{@{}l}{On the \NumMatchedPairsIoU{} pairs at $\geq$50\% reciprocal overlap} \\
+\midrule
+Median summit distance & \MatchedSummitDist{}\,bp \\
+Summit within 50\,bp / 100\,bp & \MatchedSummitWithinFifty{} / \MatchedSummitWithinHundred{} \\
+Pearson $r$ on peak strength & \MatchedPearsonR{} \\
+Spearman $r$ on peak strength & \MatchedSpearmanR{} \\
+\bottomrule
+\end{tabular}
+\end{table}

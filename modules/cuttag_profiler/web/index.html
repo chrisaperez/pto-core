@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUT&amp;Tag Profiler</title>
+<style>
+/* Every rule is inlined: an air-gapped host has no route to a font CDN or a
+   stylesheet host, and the Content-Security-Policy blocks one regardless.
+   That constraint shapes the type choices below -- there is no webfont to
+   load, so the system stack has to be used well rather than worked around. */
+
+/* ---------------------------------------------------------------------------
+   Palette
+
+   Neutral-first. Colour carries exactly one meaning in this interface --
+   status -- so nothing else is allowed to use it. Panels, borders, headings
+   and the sidebar are all greys; the accent appears in the signal curve, the
+   focus ring and the primary action, and nowhere else. That is what makes an
+   amber "degraded" pill legible at a glance instead of competing with a blue
+   card header for attention.
+
+   The greys are very slightly warm (a few points more red than blue) so large
+   fills do not read as the cold blue-grey that a pure neutral takes on next
+   to white. The difference is invisible in isolation and obvious side by side.
+   --------------------------------------------------------------------------- */
+:root {
+  color-scheme: light dark;
+
+  --bg:        #fbfbfa;
+  --surface:   #ffffff;
+  --sunken:    #f4f4f2;
+  --hairline:  #e6e5e1;
+  --rule:      #d6d5d0;
+
+  --ink:       #1a1a18;
+  --ink-2:     #46453f;
+  --ink-3:     #76746c;
+  --ink-4:     #a3a099;
+
+  --accent:    #2f5d8c;
+  --accent-ink:#ffffff;
+  --accent-wash: rgba(47, 93, 140, 0.10);
+
+  --ok:        #2f6b45;
+  --warn:      #8a5a10;
+  --danger:    #9b2c22;
+  --ok-wash:   rgba(47, 107, 69, 0.10);
+  --warn-wash: rgba(138, 90, 16, 0.10);
+  --danger-wash: rgba(155, 44, 34, 0.09);
+
+  /* Heatmap ramp endpoints, resolved per theme and read by the canvas code.
+     Keeping them here rather than in JS means the ramp re-derives itself when
+     the theme flips, instead of the dark-mode ramp bleeding into a light page. */
+  --ramp-0: #f6f5f2;
+  --ramp-1: #2f5d8c;
+
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --shadow: 0 1px 2px rgba(26, 26, 24, 0.04), 0 1px 1px rgba(26, 26, 24, 0.03);
+
+  --rail: 300px;
+  --header-h: 57px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:       #17171a;
+    --surface:  #1e1e22;
+    --sunken:   #242429;
+    --hairline: #2e2e34;
+    --rule:     #3a3a42;
+
+    --ink:      #edecea;
+    --ink-2:    #c2c0bb;
+    --ink-3:    #8e8c86;
+    --ink-4:    #6a6862;
+
+    --accent:   #7fb0e0;
+    --accent-ink: #10131a;
+    --accent-wash: rgba(127, 176, 224, 0.14);
+
+    --ok:       #7fc79b;
+    --warn:     #e0b26a;
+    --danger:   #ea8b80;
+    --ok-wash:  rgba(127, 199, 155, 0.13);
+    --warn-wash: rgba(224, 178, 106, 0.13);
+    --danger-wash: rgba(234, 139, 128, 0.12);
+
+    --ramp-0:   #1b1b1f;
+    --ramp-1:   #9cc4ea;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  /* Every number in this interface is meant to be compared against the number
+     above it -- bin counts, elapsed times, mean signal. Tabular figures make
+     the columns line up; proportional ones make a table of metrics ripple. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------------------
+   Type scale
+
+   Four sizes, no more: 11px overline, 13px body-small, 15px body, and the
+   metric numerals. A hierarchy people can hold in their head is what makes a
+   dense page scannable; six sizes just reads as noise.
+   --------------------------------------------------------------------------- */
+.overline {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* --- header --------------------------------------------------------------- */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--header-h);
+  padding: 0 22px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--hairline);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.wordmark {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+.wordmark h1 {
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  margin: 0;
+  white-space: nowrap;
+}
+.wordmark .version {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  letter-spacing: 0;
+}
+
+.spacer { flex: 1 1 auto; }
+
+/* Status pills. The only coloured chrome on the page, and the reason the rest
+   of it is grey. A dot plus a word, not a word in a coloured box: the dot
+   carries the state at a glance, the word carries it for anyone who cannot
+   separate the hues. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 550;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.pill .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.pill.ok     { color: var(--ok);     background: var(--ok-wash);     border-color: var(--ok-wash); }
+.pill.warn   { color: var(--warn);   background: var(--warn-wash);   border-color: var(--warn-wash); }
+.pill.danger { color: var(--danger); background: var(--danger-wash); border-color: var(--danger-wash); }
+.pill.quiet  { color: var(--ink-3);  background: var(--sunken);      border-color: var(--hairline); }
+
+@media (max-width: 720px) { .pill.optional { display: none; } }
+
+/* --- controls ------------------------------------------------------------- */
+
+button {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  border-radius: 7px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink-2);
+  transition: background 90ms ease, border-color 90ms ease, color 90ms ease;
+}
+button:disabled { opacity: 0.45; cursor: default; }
+
+button.ghost {
+  font-size: 12.5px;
+  font-weight: 520;
+  padding: 5px 11px;
+}
+button.ghost:hover:not(:disabled) { background: var(--sunken); color: var(--ink); }
+
+button.primary {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+button.primary:disabled { cursor: progress; }
+
+:where(input, select, button):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* --- layout --------------------------------------------------------------- */
+
+main {
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 940px) {
+  main { grid-template-columns: 1fr; }
+}
+
+aside {
+  padding: 20px 22px 40px;
+  border-right: 1px solid var(--hairline);
+  background: var(--surface);
+  position: sticky;
+  top: var(--header-h);
+  max-height: calc(100vh - var(--header-h));
+  overflow-y: auto;
+}
+@media (max-width: 940px) {
+  aside {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline);
+  }
+}
+
+/* A measure cap on the content column. Full-bleed panels on a 27" display
+   push the axis labels so far from the curve that reading a value off the
+   chart becomes a head-turn; 1180px keeps the whole panel in one gaze. */
+section.content {
+  padding: 24px 26px 56px;
+  min-width: 0;
+  max-width: 1180px;
+}
+
+/* --- sidebar form --------------------------------------------------------- */
+
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 22px;
+}
+fieldset + fieldset {
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+}
+legend {
+  padding: 0 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  margin: 13px 0 5px;
+}
+fieldset > label:first-of-type { margin-top: 0; }
+
+input, select {
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+  padding: 7px 9px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+}
+input::placeholder { color: var(--ink-4); }
+input.path { font-family: var(--mono); font-size: 12px; }
+
+select {
+  appearance: none;
+  /* Inline SVG chevron -- a data URI, not a request, so it survives the CSP
+     and the air gap. */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2376746c' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.hint {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-4);
+  margin-top: 5px;
+}
+
+/* --- status line ---------------------------------------------------------- */
+
+#status {
+  display: none;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  padding: 10px 13px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--ink-2);
+}
+#status.show { display: flex; }
+#status .marker {
+  flex: none;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  margin-top: 7px;
+  background: var(--ink-4);
+}
+#status.busy .marker { background: var(--accent); }
+#status.err {
+  color: var(--danger);
+  border-color: var(--danger-wash);
+  background: var(--danger-wash);
+}
+#status.err .marker { background: var(--danger); }
+
+/* --- panels --------------------------------------------------------------- */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.panel > header {
+  /* Not the page header -- scoped so a panel head does not inherit the
+     sticky positioning and the 57px height. */
+  position: static;
+  height: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 13px 18px;
+  background: transparent;
+  border-bottom: 1px solid var(--hairline);
+}
+.panel > header h2 {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+.panel > header .note {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.panel .body { padding: 18px; }
+.panel .body.flush { padding: 0; }
+
+/* --- metrics -------------------------------------------------------------- */
+
+/* Hairline-separated cells rather than boxed cards. Eight bordered tiles in a
+   row is eight competing rectangles; a single ruled band reads as one object
+   whose parts happen to be numbers, which is what a run summary actually is. */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+.metric {
+  background: var(--surface);
+  padding: 13px 18px;
+}
+.metric .k {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.metric .v {
+  margin-top: 3px;
+  font-size: 21px;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.metric .u {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-left: 2px;
+  letter-spacing: 0;
+}
+
+/* --- charts --------------------------------------------------------------- */
+
+canvas { display: block; width: 100%; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  padding: 11px 18px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.legend .item { display: inline-flex; align-items: center; gap: 7px; }
+.swatch {
+  display: inline-block;
+  width: 18px; height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.swatch.dashed {
+  height: 0;
+  border-top: 1px dashed var(--ink-4);
+  border-radius: 0;
+}
+.scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.scale .ramp {
+  display: inline-block;
+  width: 128px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1px solid var(--hairline);
+}
+
+/* --- table ---------------------------------------------------------------- */
+
+.scroll { max-height: 340px; overflow-y: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: left;
+  padding: 9px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+tbody td {
+  padding: 7px 18px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--ink-2);
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: var(--sunken); }
+
+td.rank { color: var(--ink-4); width: 1%; font-variant-numeric: tabular-nums; }
+td.name { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --- empty state ---------------------------------------------------------- */
+
+.empty {
+  padding: 84px 28px;
+  text-align: center;
+  color: var(--ink-3);
+  border: 1px dashed var(--rule);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.empty h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 7px;
+}
+.empty p { margin: 0 auto; max-width: 46ch; font-size: 13px; }
+
+/* --- footer --------------------------------------------------------------- */
+
+footer {
+  padding: 18px 26px 30px;
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-4);
+  font-size: 11.5px;
+}
+footer code { font-family: var(--mono); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">
+    <h1>CUT&amp;Tag Signal Profiler</h1>
+    <span class="version" id="version">local</span>
+  </div>
+  <span class="pill ok optional" title="No request leaves this machine">
+    <span class="dot"></span>127.0.0.1 · air-gapped
+  </span>
+  <div class="spacer"></div>
+  <button class="ghost" id="export-profile" disabled>Export profile</button>
+  <button class="ghost" id="export-matrix" disabled>Export matrix</button>
+</header>
+
+<main>
+<aside>
+  <form id="form">
+    <fieldset>
+      <legend>Input</legend>
+      <label for="bam">Indexed BAM / CRAM</label>
+      <input class="path" id="bam" name="bam" placeholder="/data/H3K4me3_rep1.bam" required>
+      <div class="hint">A matching <code>.bai</code> or <code>.csi</code> must sit alongside it.</div>
+
+      <label for="regions">Regions (BED / GTF)</label>
+      <input class="path" id="regions" name="regions" placeholder="/data/promoters_hg38.bed" required>
+    </fieldset>
+
+    <fieldset>
+      <legend>Window</legend>
+      <label for="reference">Reference point</label>
+      <select id="reference" name="reference">
+        <option value="TSS" selected>TSS (region start)</option>
+        <option value="center">Center</option>
+        <option value="TES">TES (region end)</option>
+      </select>
+
+      <!-- Every numeric input uses step="1". A coarser step would make the
+           browser reject any value off that grid -- with min="1" step="10",
+           the default bin size of 50 is itself invalid and the form can never
+           be submitted. Window sizes are not always round numbers either. -->
+      <div class="pair">
+        <div>
+          <label for="upstream">Upstream (bp)</label>
+          <input id="upstream" name="upstream" type="number" value="2000" min="0" step="1">
+        </div>
+        <div>
+          <label for="downstream">Downstream (bp)</label>
+          <input id="downstream" name="downstream" type="number" value="2000" min="0" step="1">
+        </div>
+      </div>
+      <div class="pair">
+        <div>
+          <label for="binSize">Bin size (bp)</label>
+          <input id="binSize" name="binSize" type="number" value="50" min="1" step="1">
+        </div>
+        <div>
+          <label for="threads">Threads</label>
+          <input id="threads" name="threads" type="number" value="0" min="0" step="1">
+        </div>
+      </div>
+      <div class="hint">Threads 0 uses all available cores.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Signal</legend>
+      <label for="normalization">Normalization</label>
+      <select id="normalization" name="normalization">
+        <option value="CPM" selected>CPM</option>
+        <option value="RPKM">RPKM</option>
+        <option value="BPM">BPM</option>
+        <option value="raw">Raw counts</option>
+      </select>
+
+      <label for="countMode">Count mode</label>
+      <select id="countMode" name="countMode">
+        <option value="reads" selected>Fragments per bin (deeptools parity)</option>
+        <option value="depth">Mean per-base depth (CIGAR-aware)</option>
+      </select>
+
+      <div class="pair">
+        <div>
+          <label for="minMapq">Min MAPQ</label>
+          <input id="minMapq" name="minMapq" type="number" value="0" min="0" max="255">
+        </div>
+        <div>
+          <label for="maxFragment">Max fragment</label>
+          <input id="maxFragment" name="maxFragment" type="number" value="1000" min="0" step="1">
+        </div>
+      </div>
+
+      <label for="strand">Strand handling</label>
+      <select id="strand" name="strand">
+        <option value="true" selected>Orient by BED strand column</option>
+        <option value="false">Ignore strand</option>
+      </select>
+    </fieldset>
+
+    <button class="primary" id="run" type="submit">Compute profile</button>
+  </form>
+</aside>
+
+<section class="content">
+  <div id="status"><span class="marker"></span><span id="status-text"></span></div>
+
+  <div class="panel" id="stats-card" hidden>
+    <header>
+      <h2>Run summary</h2>
+      <span class="note" id="stats-note"></span>
+    </header>
+    <div class="metrics" id="stats"></div>
+  </div>
+
+  <div class="panel" id="profile-card" hidden>
+    <header>
+      <h2>Meta-profile</h2>
+      <span class="note" id="profile-sub"></span>
+    </header>
+    <div class="body"><canvas id="profile" height="300"></canvas></div>
+    <div class="legend">
+      <span class="item"><span class="swatch"></span>Mean signal across regions</span>
+      <span class="item"><span class="swatch dashed"></span>Reference point</span>
+    </div>
+  </div>
+
+  <div class="panel" id="heatmap-card" hidden>
+    <header>
+      <h2>Region heatmap</h2>
+      <span class="note" id="heatmap-sub"></span>
+    </header>
+    <div class="body"><canvas id="heatmap" height="420"></canvas></div>
+    <div class="legend">
+      <span class="item">Sorted by mean signal, descending</span>
+      <span class="scale">
+        <span id="ramp-min">0</span>
+        <span class="ramp" id="ramp"></span>
+        <span id="ramp-max">0</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="panel" id="table-card" hidden>
+    <header><h2>Top regions by mean signal</h2></header>
+    <div class="body flush">
+      <div class="scroll">
+        <table id="table">
+          <thead>
+            <tr><th class="num">#</th><th>Region</th><th class="num">Mean</th><th class="num">Peak</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty" id="empty">
+    <h2>No profile computed yet</h2>
+    <p>
+      Point the fields on the left at a local BAM and a BED or GTF file, then compute.
+      Nothing is uploaded &mdash; the C++ core reads the files directly from this machine.
+    </p>
+  </div>
+</section>
+</main>
+
+<footer>
+  cuttag_profiler &middot; embedded HTTP core on <code>127.0.0.1</code> &middot; no external network access
+</footer>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+let lastResult = null;
+
+// The session token (SECURITY_HTTP H1c). The server prints a URL carrying
+// `?t=<token>` and opens it; every /api/ request has to present the token
+// back, or the pre-routing handler answers 401.
+//
+// Read once, here, from the URL the page was loaded with. Kept in a module
+// variable rather than in sessionStorage or a cookie: a cookie would be sent
+// automatically and hand the CSRF problem back to us, and storage would
+// outlive the run whose token it is. Nothing writes it to the DOM.
+const SESSION_TOKEN = new URLSearchParams(location.search).get("t") || "";
+
+// Builds an API URL with the token and any extra query parameters attached.
+// Every fetch below goes through this; a call that forgets it gets a 401
+// rather than silently working, which is the failure direction to want.
+function api(path, params) {
+  const query = new URLSearchParams(params || {});
+  if (SESSION_TOKEN) query.set("t", SESSION_TOKEN);
+  const suffix = query.toString();
+  return suffix ? path + "?" + suffix : path;
+}
+
+// Strip the token out of the address bar once it has been read. It stays in
+// SESSION_TOKEN for the life of the page; removing it from the visible URL
+// keeps it out of screenshots, out of anything the operator pastes into a bug
+// report, and out of the browser history that survives the run.
+if (SESSION_TOKEN && window.history && history.replaceState) {
+  history.replaceState(null, "", location.pathname);
+}
+
+function setStatus(message, kind) {
+  const el = $("status");
+  $("status-text").textContent = message;
+  el.className = message ? "show " + (kind || "") : "";
+}
+
+function fmt(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "-";
+  const abs = Math.abs(value);
+  if (abs >= 1e9) return (value / 1e9).toFixed(2) + "B";
+  if (abs >= 1e6) return (value / 1e6).toFixed(2) + "M";
+  if (abs >= 1e3) return (value / 1e3).toFixed(1) + "k";
+  if (abs >= 10) return value.toFixed(1);
+  if (abs === 0) return "0";
+  return value.toPrecision(3);
+}
+
+function fmtBp(bp) {
+  if (Math.abs(bp) >= 1000) return (bp / 1000).toFixed(bp % 1000 === 0 ? 0 : 1) + " kb";
+  return bp + " bp";
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+// Parses a "#rrggbb" custom property into [r, g, b]. The heatmap ramp
+// endpoints live in CSS so they follow the theme; this is what lets the canvas
+// read them. Falls back to mid-grey rather than throwing, so a malformed
+// custom property degrades to a dull heatmap instead of a blank panel.
+function rgbOf(name) {
+  const hex = cssVar(name);
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) return [128, 128, 128];
+  const n = parseInt(match[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// Sizes a canvas for the current device pixel ratio so lines stay crisp.
+function prepare(canvas, cssHeight) {
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth || canvas.parentElement.clientWidth;
+  canvas.width = Math.round(width * ratio);
+  canvas.height = Math.round(cssHeight * ratio);
+  canvas.style.height = cssHeight + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, width, cssHeight);
+  return { ctx, width, height: cssHeight };
+}
+
+function drawProfile(result) {
+  const canvas = $("profile");
+  const { ctx, width, height } = prepare(canvas, 300);
+  const pad = { top: 16, right: 8, bottom: 30, left: 58 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+
+  const values = result.profile;
+  const offsets = result.binOffsets;
+  if (!values.length) return;
+
+  let vmax = -Infinity, vmin = Infinity;
+  for (const v of values) { if (v > vmax) vmax = v; if (v < vmin) vmin = v; }
+  if (vmin > 0) vmin = 0;
+  if (vmax === vmin) vmax = vmin + 1;
+  const dataMax = vmax;
+  vmax += (vmax - vmin) * 0.08;
+
+  const x = (i) => pad.left + (plotW * i) / (values.length - 1 || 1);
+  const y = (v) => pad.top + plotH - (plotH * (v - vmin)) / (vmax - vmin);
+
+  const hairline = cssVar("--hairline");
+  const muted = cssVar("--ink-3");
+  const faint = cssVar("--ink-4");
+  const accent = cssVar("--accent");
+
+  // Horizontal grid + y axis labels. The gridlines are hairlines in the panel
+  // border colour rather than a distinct "grid" grey: they are structure, not
+  // content, and should sit visually behind the curve.
+  ctx.font = "11px " + cssVar("--sans");
+  ctx.lineWidth = 1;
+  for (let t = 0; t <= 4; t++) {
+    const v = vmin + ((vmax - vmin) * t) / 4;
+    const yy = Math.round(y(v)) + 0.5;
+    ctx.strokeStyle = hairline;
+    ctx.beginPath(); ctx.moveTo(pad.left, yy); ctx.lineTo(width - pad.right, yy); ctx.stroke();
+    ctx.fillStyle = faint;
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.fillText(fmt(v), pad.left - 10, yy);
+  }
+
+  // Reference-point marker at offset 0.
+  let zeroIdx = 0, best = Infinity;
+  offsets.forEach((o, i) => { if (Math.abs(o) < best) { best = Math.abs(o); zeroIdx = i; } });
+  const zx = Math.round(x(zeroIdx)) + 0.5;
+  ctx.strokeStyle = faint;
+  ctx.setLineDash([3, 4]);
+  ctx.beginPath(); ctx.moveTo(zx, pad.top); ctx.lineTo(zx, pad.top + plotH); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // X axis labels at both ends and the anchor.
+  ctx.textBaseline = "top";
+  ctx.fillStyle = faint;
+  ctx.textAlign = "left";
+  ctx.fillText(fmtBp(offsets[0]), pad.left, pad.top + plotH + 9);
+  ctx.textAlign = "right";
+  ctx.fillText("+" + fmtBp(offsets[offsets.length - 1]), width - pad.right, pad.top + plotH + 9);
+  ctx.textAlign = "center";
+  ctx.fillStyle = muted;
+  ctx.fillText(result.referencePoint, zx, pad.top + plotH + 9);
+
+  // Filled area under the curve, at low opacity. The fill is there to give the
+  // curve a base to read against, not to be looked at, so it stops well short
+  // of competing with the stroke.
+  ctx.beginPath();
+  ctx.moveTo(x(0), y(values[0]));
+  for (let i = 1; i < values.length; i++) ctx.lineTo(x(i), y(values[i]));
+  ctx.lineTo(x(values.length - 1), pad.top + plotH);
+  ctx.lineTo(x(0), pad.top + plotH);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+  grad.addColorStop(0, cssVar("--accent-wash"));
+  grad.addColorStop(1, "transparent");
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(x(0), y(values[0]));
+  for (let i = 1; i < values.length; i++) ctx.lineTo(x(i), y(values[i]));
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1.75;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  $("profile-sub").textContent =
+    result.normalization + " · " + values.length + " bins · peak " + fmt(dataMax);
+}
+
+// Single-hue sequential ramp between the two theme-supplied endpoints, with a
+// gamma bend so the mid-tones do not crush.
+//
+// The previous dark-blue -> teal -> yellow ramp was replaced deliberately: a
+// multi-hue ramp invents category boundaries in continuous data (the eye reads
+// the teal-to-yellow transition as a threshold that is not in the signal), and
+// its darkest stop was hard-coded to the old dark theme's background, so in
+// light mode the heatmap's floor was a near-black slab. One hue, both themes,
+// no phantom edges.
+function rampColor(t) {
+  const a = rgbOf("--ramp-0");
+  const b = rgbOf("--ramp-1");
+  const clamped = Math.max(0, Math.min(1, t));
+  const eased = Math.pow(clamped, 0.72);
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * eased),
+    Math.round(a[1] + (b[1] - a[1]) * eased),
+    Math.round(a[2] + (b[2] - a[2]) * eased)
+  ];
+}
+
+function rampCss() {
+  const stops = [];
+  for (let i = 0; i <= 8; i++) {
+    const [r, g, b] = rampColor(i / 8);
+    stops.push("rgb(" + r + "," + g + "," + b + ") " + ((i / 8) * 100).toFixed(0) + "%");
+  }
+  return "linear-gradient(to right, " + stops.join(", ") + ")";
+}
+
+function drawHeatmap(result) {
+  const rows = result.heatmap;
+  if (!rows || !rows.length) { $("heatmap-card").hidden = true; return; }
+  $("heatmap-card").hidden = false;
+
+  const canvas = $("heatmap");
+  const cols = result.binOffsets.length;
+  const cssHeight = 420;
+  const { ctx, width } = prepare(canvas, cssHeight);
+  const pad = { top: 6, right: 8, bottom: 26, left: 58 };
+  const plotW = Math.max(1, width - pad.left - pad.right);
+  const plotH = cssHeight - pad.top - pad.bottom;
+
+  // 99th percentile saturation keeps a handful of extreme loci from washing
+  // the whole panel out.
+  const flat = [];
+  for (const row of rows) for (const v of row) flat.push(v);
+  flat.sort((a, b) => a - b);
+  const vmax = flat[Math.floor(flat.length * 0.99)] || 1;
+  const vmin = flat[0] || 0;
+
+  // The image is built at its natural resolution (one pixel per bin per band)
+  // on an offscreen canvas, then scaled into place with drawImage.
+  // putImageData cannot be used directly here: it writes raw device pixels and
+  // ignores the context transform, so on a HiDPI display the heatmap would
+  // land in the top-left quadrant at half size.
+  const offscreen = document.createElement("canvas");
+  offscreen.width = cols;
+  offscreen.height = rows.length;
+  const offCtx = offscreen.getContext("2d");
+  const image = offCtx.createImageData(cols, rows.length);
+  const data = image.data;
+  for (let py = 0; py < rows.length; py++) {
+    const row = rows[py];
+    for (let px = 0; px < cols; px++) {
+      const t = (row[px] - vmin) / (vmax - vmin || 1);
+      const [red, green, blue] = rampColor(t);
+      const o = (py * cols + px) * 4;
+      data[o] = red; data[o + 1] = green; data[o + 2] = blue; data[o + 3] = 255;
+    }
+  }
+  offCtx.putImageData(image, 0, 0);
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(offscreen, pad.left, pad.top, plotW, plotH);
+
+  ctx.fillStyle = cssVar("--ink-4");
+  ctx.font = "11px " + cssVar("--sans");
+  ctx.textAlign = "right"; ctx.textBaseline = "top";
+  ctx.fillText("1", pad.left - 10, pad.top);
+  ctx.textBaseline = "bottom";
+  ctx.fillText(String(rows.length), pad.left - 10, pad.top + plotH);
+
+  const offsets = result.binOffsets;
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  ctx.fillText(fmtBp(offsets[0]), pad.left, pad.top + plotH + 8);
+  ctx.textAlign = "right";
+  ctx.fillText("+" + fmtBp(offsets[offsets.length - 1]), pad.left + plotW, pad.top + plotH + 8);
+  ctx.textAlign = "center";
+  ctx.fillStyle = cssVar("--ink-3");
+  ctx.fillText(result.referencePoint, pad.left + plotW / 2, pad.top + plotH + 8);
+
+  $("ramp").style.background = rampCss();
+  $("ramp-min").textContent = fmt(vmin);
+  $("ramp-max").textContent = fmt(vmax) + " (p99)";
+  $("heatmap-sub").textContent = rows.length + " of " + result.regions + " regions";
+}
+
+function drawTable(result) {
+  const body = $("table").querySelector("tbody");
+  body.innerHTML = "";
+  (result.topRegions || []).forEach((entry, i) => {
+    const tr = document.createElement("tr");
+    const cells = [
+      { text: String(i + 1), cls: "rank num" },
+      { text: entry.name, cls: "name" },
+      { text: fmt(entry.mean), cls: "num" },
+      { text: fmt(entry.peak), cls: "num" }
+    ];
+    cells.forEach(({ text, cls }) => {
+      const td = document.createElement("td");
+      td.className = cls;
+      td.textContent = text;
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+  $("table-card").hidden = !(result.topRegions && result.topRegions.length);
+}
+
+function drawStats(result) {
+  // Ordered by what someone actually checks first: did it finish, how much did
+  // it cover, and only then how it was scaled. Units are split out of the
+  // value so the numerals stay in one tabular column.
+  const entries = [
+    ["Elapsed", result.elapsedSeconds.toFixed(2), "s"],
+    ["Regions", fmt(result.regions), ""],
+    ["Regions/s", fmt(result.regions / Math.max(result.elapsedSeconds, 1e-9)), ""],
+    ["Bins", String(result.binOffsets.length), ""],
+    ["Mapped reads", fmt(result.totalMappedReads), ""],
+    ["Threads", String(result.threads), ""],
+    ["Scale factor", result.scaleFactor.toPrecision(4), ""],
+    ["Skipped", String(result.regionsSkipped), ""]
+  ];
+
+  const container = $("stats");
+  container.innerHTML = "";
+  for (const [key, value, unit] of entries) {
+    const cell = document.createElement("div");
+    cell.className = "metric";
+    const k = document.createElement("div");
+    k.className = "k";
+    k.textContent = key;
+    const v = document.createElement("div");
+    v.className = "v";
+    v.textContent = value;
+    if (unit) {
+      const u = document.createElement("span");
+      u.className = "u";
+      u.textContent = unit;
+      v.appendChild(u);
+    }
+    cell.appendChild(k);
+    cell.appendChild(v);
+    container.appendChild(cell);
+  }
+
+  // Regions skipped is the one number here that can mean something is wrong --
+  // usually a contig-naming mismatch between the BED and the BAM header. It
+  // gets the interface's only conditional colour rather than sitting silently
+  // in the row as an ordinary count.
+  const note = $("stats-note");
+  if (result.regionsSkipped > 0) {
+    note.innerHTML = "";
+    const pill = document.createElement("span");
+    pill.className = "pill warn";
+    pill.innerHTML = '<span class="dot"></span>';
+    pill.appendChild(document.createTextNode(
+      result.regionsSkipped + " region" + (result.regionsSkipped === 1 ? "" : "s") + " skipped"
+    ));
+    note.appendChild(pill);
+  } else {
+    // Only fields the /api/profile response actually carries. countMode is
+    // sent in the request but not echoed back, so it cannot be shown here
+    // without rendering the literal string "undefined".
+    note.textContent = result.normalization + " · " + result.referencePoint +
+      " ± " + fmtBp(Math.abs(result.binOffsets[0]));
+  }
+
+  $("stats-card").hidden = false;
+}
+
+function render(result) {
+  lastResult = result;
+  $("empty").hidden = true;
+  $("profile-card").hidden = false;
+  drawStats(result);
+  drawProfile(result);
+  drawHeatmap(result);
+  drawTable(result);
+  $("export-matrix").disabled = false;
+  $("export-profile").disabled = false;
+}
+
+$("form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("run");
+  button.disabled = true;
+  button.textContent = "Computing…";
+  setStatus("Querying BAM index and accumulating bins…", "busy");
+
+  const payload = {
+    bam: $("bam").value.trim(),
+    regions: $("regions").value.trim(),
+    referencePoint: $("reference").value,
+    upstream: Number($("upstream").value),
+    downstream: Number($("downstream").value),
+    binSize: Number($("binSize").value),
+    normalization: $("normalization").value,
+    countMode: $("countMode").value,
+    minMapq: Number($("minMapq").value),
+    maxFragmentLength: Number($("maxFragment").value),
+    respectStrand: $("strand").value === "true",
+    threads: Number($("threads").value),
+    heatmapRows: 400,
+    topRegions: 50
+  };
+
+  const started = performance.now();
+  try {
+    const response = await fetch(api("/api/profile"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || ("HTTP " + response.status));
+    render(body);
+    const wall = ((performance.now() - started) / 1000).toFixed(2);
+    setStatus(
+      "Done in " + body.elapsedSeconds.toFixed(2) + " s of compute (" + wall +
+      " s wall) across " + body.regions + " regions.", "");
+  } catch (error) {
+    setStatus("Error: " + error.message, "err");
+    $("empty").hidden = Boolean(lastResult);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Compute profile";
+  }
+});
+
+function download(name, text) {
+  const blob = new Blob([text], { type: "text/tab-separated-values" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+$("export-profile").addEventListener("click", () => {
+  if (!lastResult) return;
+  let out = "offset\tmean_signal\n";
+  lastResult.binOffsets.forEach((o, i) => { out += o + "\t" + lastResult.profile[i] + "\n"; });
+  download("profile.tsv", out);
+});
+
+$("export-matrix").addEventListener("click", async () => {
+  if (!lastResult) return;
+  setStatus("Writing full matrix…", "busy");
+  try {
+    const response = await fetch(
+      api("/api/matrix", { token: lastResult.token }));
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    download("matrix.tsv", await response.text());
+    setStatus("Matrix exported.", "");
+  } catch (error) {
+    setStatus("Export failed: " + error.message, "err");
+  }
+});
+
+function redraw() {
+  if (lastResult) { drawProfile(lastResult); drawHeatmap(lastResult); }
+}
+
+window.addEventListener("resize", redraw);
+
+// The canvases read their colours from CSS custom properties, which change
+// when the OS theme flips. Without this the chart keeps the previous theme's
+// ink until the next resize or run -- light text on a light panel.
+if (window.matchMedia) {
+  const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+  const onChange = () => redraw();
+  if (scheme.addEventListener) scheme.addEventListener("change", onChange);
+  else if (scheme.addListener) scheme.addListener(onChange);
+}
+
+fetch(api("/api/health"))
+  .then((r) => r.json())
+  .then((info) => { $("version").textContent = "v" + info.version; })
+  .catch(() => {});
+</script>
+</body>
+</html>

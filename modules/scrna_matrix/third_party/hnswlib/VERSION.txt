@@ -1,0 +1,164 @@
+hnswlib v0.9.0 (released 2026-03-28)
+Upstream: https://github.com/nmslib/hnswlib
+License: Apache-2.0 (see LICENSE)
+
+LOCAL MODIFICATIONS
+-------------------
+This copy is NO LONGER verbatim. One patch is applied; keep this list exact, and
+re-apply or drop it deliberately when bumping the vendored version.
+
+1. hnswalg.h -- data race on `level_generator_` (added 2026-08-15)
+
+   `getRandomLevel()` draws from `level_generator_`, a shared
+   `std::default_random_engine` member. `addPoint()` calls it while holding only
+   `link_list_locks_[cur_c]`, a per-element mutex, so two threads inserting
+   different elements hold different locks and read-modify-write the generator
+   concurrently.
+
+   Confirmed by ThreadSanitizer against this exact copy, reproducibly at 2, 8
+   and 32 threads, via scrna::hnsw_build_and_search (knn_graph.hpp:591):
+
+       WARNING: ThreadSanitizer: data race
+         Read of size 8 ... hnswlib::HierarchicalNSW<float>::getRandomLevel
+           addPoint  hnswalg.h:1186
+         Previous write of size 8 by thread T2
+           std::linear_congruential_engine<...>::operator()  random.h:370
+
+   Practical effect on mainstream 64-bit targets is a lost update rather than a
+   torn value, so it degrades to occasional duplicate levels -- but it is a data
+   race and therefore UB, and it makes index construction irreproducible beyond
+   hnswlib's documented non-determinism.
+
+   Patch: added `std::mutex level_generator_lock_` and took it around the draw
+   inside `getRandomLevel()`. A dedicated mutex rather than the existing
+   `global`, which addPoint holds across the max-level update -- reusing it
+   would serialise index construction.
+
+   Fixed rather than suppressed in docker/tsan.supp, because a suppression on
+   this call path would also hide future first-party races routed through it.
+
+   Not yet reported upstream.
+
+2. hnswalg.h -- data race on `enterpoint_node_` (added 2026-08-16)
+
+   addPoint() takes `global`, reads `maxlevel_`, then RELEASES the lock when
+   `curlevel <= maxlevelcopy` -- the common case, since most insertions do not
+   raise the maximum level -- and only afterwards reads `enterpoint_node_`.
+   A thread on the `curlevel > maxlevelcopy` branch writes that same member at
+   the end of the function while holding `global`. The frequent path therefore
+   reads it unlocked while a rare path writes it locked.
+
+   Confirmed by ThreadSanitizer (clang-18 + libomp, 32 threads) via
+   scrna::HnswIndex::add_csr:
+
+       WARNING: ThreadSanitizer: data race
+         Write of size 4 ... addPoint  hnswalg.h:1302  (enterpoint_node_ = cur_c)
+         Previous read of size 4 ... addPoint  hnswalg.h:1236
+         Location is heap block of size 584 (the HierarchicalNSW object)
+
+   Probabilistic: it needs a level increase concurrent with another insertion,
+   so it does not reproduce on every run or at low thread counts.
+
+   Patch: hoist the two `enterpoint_node_` loads above the conditional unlock so
+   the snapshot is taken inside the critical section. Behaviour is unchanged --
+   the algorithm already tolerates a stale entry point, since the value can be
+   superseded the moment the lock drops. What goes away is the unsynchronised
+   access, which is UB however benign the staleness.
+
+   Not yet reported upstream.
+
+3. hnswalg.h -- heap-buffer-overflow in the SSE prefetch loops (added 2026-08-16)
+
+   searchBaseLayer / searchBaseLayerST / mutuallyConnectNewElement prefetch one
+   candidate ahead of the one being processed, loading `datal[j + 1]` with j
+   running to size - 1. On the final element of data_level0_memory_ that read
+   runs past the allocation:
+
+       ERROR: AddressSanitizer: heap-buffer-overflow
+         READ ... searchBaseLayer  hnswalg.h:317
+         #1 addPoint  hnswalg.h:1276
+
+   x86-only (#ifdef USE_SSE), which is why it reproduces on Linux CI and never
+   on arm64. It was masked until 2026-08-16 because the alignment UB below
+   aborted the process before searchBaseLayer was ever reached; suppressing that
+   is what exposed this.
+
+   Patch: `kPrefetchSlackBytes` (= sizeof(tableint)) appended to every buffer
+   those loops walk -- data_level0_memory_ in both the constructor and
+   loadIndex, and both linkLists_ allocations.
+
+   Over-allocating rather than adding a `j + 1 < size` guard to three hot inner
+   loops: the guard costs a branch per candidate for what is only a prefetch
+   hint, and touching those loops risks changing search behaviour. Padding is
+   behaviour-neutral and FORMAT-neutral -- saveIndex writes
+   `cur_element_count * size_data_per_element_` and loadIndex reads the same, so
+   neither the serialized bytes nor size_data_per_element_ change. (Contrast the
+   alignment UB below, which cannot be fixed without breaking the format.)
+
+   This fixes the out-of-bounds ACCESS. It does not make the prefetched index
+   meaningful -- see docker/ubsan.supp section 2 for the residual
+   pointer-overflow, which is inherent to the idiom.
+
+   Not yet reported upstream.
+
+4. hnswalg.h -- `searchKnn` had no per-query `ef` (added 2026-09-11)
+
+   `searchKnn(query, k, isIdAllowed)` takes its search breadth from the shared
+   `ef_` member (`std::max(ef_, k)`), and `setEf()` is the only way to change
+   it. A caller whose ef depends on k -- ours does, max(2k, 64) -- therefore had
+   to write `ef_` immediately before each search, which races with every
+   concurrent search's read of it.
+
+   Confirmed by ThreadSanitizer against this exact copy, two std::threads
+   querying one index with k=2 and k=400 (scrna_matrix's query_dense):
+
+       WARNING: ThreadSanitizer: data race
+         Write of size 8 ... scrna::HnswIndex::query_dense  hnsw_index.hpp:385
+         Previous read of size 8 ...
+           hnswlib::HierarchicalNSW<float>::searchKnn  hnswalg.h:1414
+
+   Benign in its effect -- the loser's ef is merely someone else's -- but it is
+   a data race and therefore UB, and it made query breadth nondeterministic
+   under concurrency.
+
+   Patch: the body of `searchKnn` moved into a new `searchKnnWithEf(query, k,
+   ef_override, isIdAllowed = nullptr)`, and `searchKnn` became a one-line
+   delegation passing `ef_override = 0`. `ef_` is read only when the override
+   is 0, so both the existing signature and the existing behaviour are
+   unchanged -- `searchKnn` is a pure virtual of `AlgorithmInterface`, so
+   adding a parameter to it directly would have made `HierarchicalNSW`
+   abstract (which is how this patch first failed to compile).
+   `HnswIndex::query_dense`/`query_csr` now pass the ef they computed and never
+   call `setEf()`, so nothing writes `ef_` during a query.
+
+   Not yet reported upstream. (Upstream's own answer to this is a per-query ef
+   in the newer python bindings only; the C++ API has no equivalent in v0.9.0.)
+
+NOT PATCHED (deliberately)
+-------------------------
+
+5. hnswalg.h:1242 -- misaligned store through `labeltype *`
+
+   `getExternalLabeLp()` forms a `labeltype*` (8-byte alignment required) at
+   `data_level0_memory_ + id * size_data_per_element_ + label_offset_`. With the
+   default M=16, `size_links_level0_ = maxM0_*4 + 4 = 132`, which is not a
+   multiple of 8, so that address is 4-byte aligned for EVERY dimension and
+   EVERY element. UBSan:
+
+       runtime error: store to misaligned address ... for type 'labeltype *'
+       (aka 'unsigned long *'), which requires 8 byte alignment
+
+   Benign on x86-64 and arm64, which permit unaligned 8-byte access; it is UB in
+   the abstract machine, not a fault on any target this project supports.
+
+   NOT fixed, and the reason matters: the obvious repair is to pad
+   `size_links_level0_` up to an 8-byte multiple. That changes
+   `size_data_per_element_`, which changes the byte layout of
+   `data_level0_memory_`, which is exactly what saveIndex()/loadIndex()
+   serialise. Padding it would silently invalidate every `.hnsw` file written by
+   HnswIndex and break the on-disk format that matrix/hnsw_index.hpp just
+   introduced -- a far worse outcome than a benign alignment diagnostic.
+
+   Suppressed instead, scoped to this file: docker/ubsan.supp.
+   Revisit if the format version is bumped for another reason, or if a target
+   that traps on unaligned access is ever added.

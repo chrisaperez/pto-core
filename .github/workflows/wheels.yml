@@ -1,0 +1,343 @@
+# SPDX-License-Identifier: MIT
+#
+# Binary wheels for BOTH PyPI packages this repository publishes. They are two
+# genuinely different artifacts built by two independent job groups in this
+# one file, not one build sharing a matrix -- merging them further than that
+# was tried in discussion and rejected, because the two wheels are shaped by
+# opposite constraints:
+#
+#   `scrna-matrix` (jobs: build/sdist/scalar-fallback/publish)
+#     A compiled pybind11 EXTENSION MODULE. OpenMP is a HARD configure failure
+#     for it, by design, and its wheel is necessarily per-interpreter
+#     (`cp312-...`), because an extension module IS bound to one Python ABI.
+#     Wheel configuration lives in modules/scrna_matrix/pyproject.toml under
+#     [tool.cibuildwheel].
+#
+#   `pto-core` (jobs: pto-core-build/pto-core-sdist/pto-core-publish)
+#     Four plain, dependency-light CLI executables (fastq_stream,
+#     cuttag_profiler, genomic_toolkit, pto-peaks) plus a pure-Python API over
+#     them. No extension module, so the wheel is ABI-NEUTRAL
+#     (`py3-none-<platform>`) -- see this repo's root pyproject.toml, which
+#     calls that tag "a correctness fix rather than a nicety". Root
+#     pyproject.toml sets `PTO_BUILD_SCRNA_MATRIX=OFF` specifically so that
+#     installing any of these four tools never requires an OpenMP toolchain;
+#     folding scrna_matrix into this build, or this build into scrna_matrix's,
+#     would undo exactly that. Wheel configuration lives in the root
+#     pyproject.toml's own [tool.cibuildwheel] tables.
+#
+# Three things the scrna_matrix half is shaped by, all of them consequences of
+# choices made elsewhere in the repo:
+#
+#   1. OpenMP is a HARD configure failure for scrna_matrix, by design. Linux
+#      gets libgomp free from the manylinux image; macOS has no OpenMP runtime
+#      at all until libomp is installed, and delocate then vendors it into the
+#      wheel. That is the single highest-risk part of this pipeline.
+#   2. Homebrew's libomp is per-architecture, so a universal2 wheel cannot be
+#      produced by cross-compiling: an arm64 runner cannot link an x86_64
+#      libomp.dylib. macOS is therefore built NATIVELY, one runner per arch.
+#   3. The SIMD kernels dispatch at RUNTIME via per-function target attributes.
+#      Wheels must be compiled at baseline ISA (SCRNA_HNSW_NATIVE_ISA=OFF, set
+#      in pyproject.toml) or they SIGILL at import on older CPUs. The
+#      forced-scalar job below exists to prove the fallback path still works,
+#      since no GitHub runner lacks AVX2.
+#
+# The pto-core half has the equivalent native-ISA constraint
+# (PROFILER_NATIVE_ARCH/FQ_NATIVE/GTK_NATIVE_ARCH all OFF in root
+# pyproject.toml) but no equivalent scalar-fallback job: unlike scrna_matrix,
+# its runtime ISA dispatch on these exact binaries is already exercised
+# directly by ci.yml's "Test each SIMD dispatch path" step, so re-proving it
+# through a second, wheel-specific artifact would be redundant rather than
+# additional coverage.
+#
+# This repository is standalone -- every path below is relative to the repo
+# root, with no `working-directory` override and no monorepo-era prefix.
+name: wheels
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "modules/scrna_matrix/**"
+      - "modules/fastq_stream/**"
+      - "modules/cuttag_profiler/**"
+      - "modules/genomic_toolkit/**"
+      - "modules/peaks/**"
+      - "packaging/**"
+      - "pyproject.toml"
+      - ".github/workflows/wheels.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, arch: x86_64 }
+          # A native ARM runner, not QEMU. Emulation would work but turns a
+          # 10-minute build into an hour, and it emulates the very CPU feature
+          # detection simd_math.hpp dispatches on -- the last thing you want
+          # under emulation.
+          - { os: ubuntu-24.04-arm, arch: aarch64 }
+          - { os: macos-15-intel, arch: x86_64 }  # Intel runner -- macos-13's successor; GitHub retired the bare macos-13 label
+          # NOT macos-14: that image's macOS 14.8.9 ships a libunwind.dylib
+          # that SIGTRAPs (EXC_BREAKPOINT in _Unwind_GetIP) on any
+          # thrown-and-caught C++ exception on Apple Silicon -- an OS bug, not
+          # a toolchain one. See ci.yml's identical build-and-test matrix entry
+          # for how this was confirmed (Xcode 15.4 -> 16.2 on macos-14: no
+          # change; macos-14 -> macos-15: crash gone). Precedent:
+          # rust-lang/rust#113783, tarantool/tarantool#9198.
+          - { os: macos-15, arch: arm64 }   # Apple Silicon runner
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # third_party/hnswlib
+          # setuptools_scm derives the published version from `git describe`;
+          # the default shallow (depth-1) checkout carries no tag history for
+          # it to find, and would leave a tag-triggered build reporting a
+          # detached-HEAD dev version instead of the tag it was built from.
+          fetch-depth: 0
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21.3
+        with:
+          package-dir: modules/scrna_matrix
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          # macOS deployment target must match the runner's arch. Intel: 14.0,
+          # not the SDK floor of 13.0/13.3 that profiler/tsv_format.hpp's use
+          # of the floating-point std::to_chars overload would otherwise
+          # allow (libc++ marks it unavailable before 13.3) -- measured
+          # against this runner's actual Homebrew bottle: delocate-wheel
+          # refused a 13.3 target because libomp.dylib here has a minimum
+          # target of 14.0, the same "vendored dylib's own floor exceeds the
+          # wheel's" failure the arm64 side hit at 14.0 (see below).
+          # arm64: 15.0, not 14.0 -- moving the arm64 runner to macos-15 (see
+          # above) means Homebrew's libomp/htslib/libdeflate bottles there are
+          # themselves built with a 15.0 floor, and delocate-wheel refuses to
+          # vendor a dylib whose own minimum target exceeds the wheel's. This
+          # is a real narrowing of the published wheel's supported range
+          # (14.0 -> 15.0), traded for a toolchain that does not SIGTRAP.
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-15-intel' && '14.0' || '15.0' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+
+  sdist:
+    name: sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0  # setuptools_scm needs tag history; see the build job above
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pipx run build --sdist modules/scrna_matrix --outdir dist
+      # An sdist that cannot be built from is worse than no sdist: pip will
+      # prefer it over failing, then fail at the user's compiler instead.
+      - name: Install from the sdist
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.tar.gz
+          python -c "import scrna_matrix; print(scrna_matrix.simd_isa())"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  scalar-fallback:
+    name: forced-scalar smoke test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-ubuntu-latest-x86_64
+          path: wheelhouse
+      # Every runner has AVX2, so the dispatch fallback is otherwise never
+      # executed in CI. SCRNA_FORCE_ISA pins the kernel, which is the only way
+      # to test the path a 2012 cluster node would actually take.
+      - name: Run the suite on the scalar kernel
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install wheelhouse/*cp312*manylinux*x86_64.whl
+          python -m pip install pytest numpy scipy
+          SCRNA_FORCE_ISA=scalar python -c "
+          import scrna_matrix
+          assert scrna_matrix.simd_isa() == 'scalar', scrna_matrix.simd_isa()
+          print('scalar dispatch confirmed')
+          "
+          SCRNA_FORCE_ISA=scalar python -m pytest \
+            modules/scrna_matrix/tests/test_python_bindings.py -q
+
+  publish:
+    name: publish to PyPI
+    needs: [build, sdist, scalar-fallback]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      # Trusted Publishing (OIDC). No API token is stored in the repository;
+      # PyPI verifies the workflow identity instead.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ===========================================================================
+  # pto-core: the four-CLI, no-extension-module wheel. See the file header for
+  # why this is a second, independent job group rather than a shared matrix
+  # with the jobs above.
+  pto-core-build:
+    name: pto-core ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, arch: x86_64 }
+          - { os: ubuntu-24.04-arm, arch: aarch64 }
+          # No universal2: root pyproject.toml records the same per-architecture
+          # Homebrew constraint scrna_matrix's wheels.yml comment states above
+          # (htslib and libomp are both per-arch), so macOS is native, one
+          # runner per arch, same as the scrna_matrix jobs.
+          - { os: macos-15-intel, arch: x86_64 }  # Intel runner
+          # NOT macos-14: see the scrna_matrix build job's identical comment
+          # above -- macOS 14.8.9's libunwind.dylib SIGTRAPs on any
+          # thrown-and-caught C++ exception on Apple Silicon.
+          - { os: macos-15, arch: arm64 }         # Apple Silicon runner
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # setuptools_scm derives the published version from `git describe`;
+          # see the scrna_matrix build job's identical checkout comment above.
+          fetch-depth: 0
+
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v2.21.3
+        with:
+          package-dir: .
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          # build = "cp312-*" in pyproject.toml's [tool.cibuildwheel] means
+          # cibuildwheel only ever builds ONE interpreter's worth of artifact
+          # per platform here -- CIBW_BUILD is not overridden, so that pin (not
+          # this workflow) is the single source of truth for which interpreter
+          # drives the build. scikit-build-core's wheel.py-api="py3" then
+          # retags the result py3-none-<platform>, which is what makes one
+          # wheel per platform correct instead of five identical ones.
+          #
+          # 15.0 on BOTH arches here, unlike the scrna_matrix build job above.
+          # This wheel additionally vendors htslib/libdeflate/xz (scrna_matrix
+          # vendors only libomp), and on this Intel runner Homebrew's xz
+          # bottle -- unlike its libomp bottle -- already has a 15.0 floor:
+          # delocate-wheel refused liblzma.5.dylib at 14.0, measured directly
+          # ("Library dependencies do not satisfy target MacOS version 14.0:
+          # ...liblzma.5.dylib has a minimum target of 15.0"). Each Homebrew
+          # formula bottles against whatever macOS the runner it was built on
+          # last builds, independently of the others, so there is no floor
+          # that is safe to assume without checking the actual failure.
+          MACOSX_DEPLOYMENT_TARGET: "15.0"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          # Prefixed so this never collides with the scrna_matrix jobs' own
+          # `wheels-${{ matrix.os }}-${{ matrix.arch }}` artifacts: both job
+          # groups include a plain ubuntu-latest/x86_64 entry in their matrix,
+          # and artifact names must be unique within one workflow run.
+          name: pto-core-wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+
+  pto-core-sdist:
+    name: pto-core sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # setuptools_scm needs tag history; see pto-core-build above
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # package-dir is the repo root here, not a modules/ subdirectory --
+      # root pyproject.toml's own sdist.exclude list (not this workflow) is
+      # what keeps benchmark/BAM fixtures and other modules' test/doc trees
+      # out of it.
+      - run: pipx run build --sdist . --outdir dist
+      # An sdist that cannot be built from is worse than no sdist: pip would
+      # prefer it over failing, then fail at the user's compiler instead.
+      #
+      # This DOES need htslib/libdeflate on the runner, and skipping them
+      # would not make the test lighter, it would make it test the wrong
+      # thing: root pyproject.toml pins PEAKS_WITH_BGZF=ON and
+      # FQ_ENABLE_HTS=ON regardless of build path (sdist or wheel), and
+      # cuttag_profiler's CMakeLists calls htslib via
+      # `pkg_check_modules(HTSLIB REQUIRED htslib)` unconditionally -- there
+      # is no AUTO/OFF for it to fall back to. Installing these mirrors what
+      # the actual capability set requires, on a plain apt toolchain instead
+      # of manylinux/Homebrew.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config zlib1g-dev libdeflate-dev libhts-dev libhtscodecs-dev libbz2-dev
+      - name: Install from the sdist and smoke-test
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.tar.gz
+          pto-core doctor
+          pto-core versions
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pto-core-sdist
+          path: dist/*.tar.gz
+
+  pto-core-publish:
+    name: publish pto-core to PyPI
+    needs: [pto-core-build, pto-core-sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # A DIFFERENT environment from scrna_matrix's `publish` job on purpose.
+    # PyPI's Trusted Publishing config is keyed on (PyPI project, repo,
+    # workflow file, environment) -- since both packages now publish from
+    # this same workflow file, they need distinct environment names for PyPI
+    # to tell the two Trusted Publisher registrations apart.
+    environment: pypi-core
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pto-core-wheels-*
+          merge-multiple: true
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: pto-core-sdist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

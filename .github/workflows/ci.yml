@@ -1,0 +1,546 @@
+# SPDX-License-Identifier: MIT
+#
+# pto-core CI.
+#
+# Four things this pipeline is deliberately built to catch, each because it
+# actually happened during hardening:
+#
+#   1. A silently single-threaded build. OpenMP used to be optional, so the
+#      suite reported "100% passed" while never running a parallel iteration.
+#      Every job here asserts that `_OPENMP` is live before it trusts a result.
+#   2. Compiler-specific UB. A signed-overflow bug passed under Clang and failed
+#      under GCC at the same optimisation level, so both are in the matrix.
+#   3. Sanitizer runs that quietly do not run. An ASan-instrumented Python
+#      extension aborts inside a stock CPython unless the runtime is preloaded,
+#      which is easy to mistake for "test skipped, fine".
+#   4. Config drift. Modules must stay independently buildable, and the
+#      OpenMP hard-fail must remain a hard fail.
+#
+# This repository is standalone -- `pto-core` is the repository root, not a
+# monorepo subdirectory. Every path below (`-S .`, `modules/...`,
+# `scripts/*.sh`, `docker/...`) is written relative to that root, and no step
+# sets `working-directory`. If you're tempted to add one, you're probably
+# fixing a symptom of a path that escaped this repo, not a real need.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Note on -Werror: it is deliberately NOT set globally. Tried and rejected --
+# a global -Werror also fails on the vendored hnswlib and, on arm64, inside
+# GCC's own arm_neon.h, neither of which is a defect in this repo. The modules
+# already scope -Wall -Wextra -Wpedantic -Wshadow to first-party targets; CI
+# instead greps the build log and fails on any warning whose path is ours.
+# Precise, and it cannot be defeated by a compiler-header false positive.
+
+jobs:
+  # ---------------------------------------------------------------------------
+  build-and-test:
+    name: build & test (${{ matrix.os }}, ${{ matrix.compiler }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            compiler: gcc
+            cc: gcc-13
+            cxx: g++-13
+          - os: ubuntu-24.04
+            compiler: clang
+            cc: clang-18
+            cxx: clang++-18
+          # macOS + Apple Clang with Homebrew's keg-only libomp, on BOTH
+          # Homebrew prefixes: cmake/PtoOpenMP.cmake's fallback chain tries
+          # `brew --prefix libomp`, then /opt/homebrew/opt/libomp (Apple
+          # Silicon's default), then /usr/local/opt/libomp (Intel's default).
+          # A single-runner matrix only ever exercises one of those -- this is
+          # the one place both get run for real rather than one being taken on
+          # faith.
+          # NOT macos-14: that image's macOS 14.8.9 ships a libunwind.dylib
+          # that SIGTRAPs (EXC_BREAKPOINT in _Unwind_GetIP) on any
+          # thrown-and-caught C++ exception on Apple Silicon -- an OS bug, not
+          # a toolchain one (confirmed by switching Xcode 15.4 -> 16.2 on
+          # macos-14 with no change, then macos-14 -> macos-15 with the crash
+          # gone entirely). Matches documented precedent: rust-lang/rust#113783,
+          # tarantool/tarantool#9198. Hit here by genomic_toolkit's own tests,
+          # which deliberately exercise PeakSet::build()'s validation throws.
+          - os: macos-15   # Apple Silicon (arm64)
+            compiler: applecl
+            cc: clang
+            cxx: clang++
+          - os: macos-15-intel   # Intel (x86_64) -- macos-13's successor; GitHub retired the bare macos-13 label
+            compiler: applecl
+            cc: clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config \
+            libomp-18-dev libclang-rt-18-dev clang-18 \
+            zlib1g-dev libdeflate-dev libhts-dev libhtscodecs-dev libbz2-dev \
+            python3-dev python3-numpy python3-scipy python3-pytest pybind11-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        env:
+          # macOS runner images ship with `aws/tap` already tapped, and
+          # current Homebrew refuses to use ANY formula from a tap the caller
+          # has not trusted -- printing a multi-line "The following taps are
+          # not trusted" block on every `brew` invocation.
+          #
+          # Nothing here comes from aws/tap (cmake, ninja, libomp, libdeflate,
+          # htslib and pybind11 are all core formulae), so today this is log
+          # noise rather than a failure. It stops being noise the moment
+          # anything in this job needs a tapped formula, and the warning is
+          # loud enough to mask a real error above it, so silence it
+          # deliberately instead of leaving it to be rediscovered.
+          HOMEBREW_NO_REQUIRE_TAP_TRUST: 1
+        run: |
+          # Preferred remedy: drop the tap we do not use, so the trust check
+          # has nothing to complain about. `|| true` because the tap is a
+          # property of the runner image, not of this repo -- a future image
+          # that omits it must not fail the job.
+          brew untap aws/tap || true
+          brew install cmake ninja libomp libdeflate htslib pybind11
+          python3 -m pip install --break-system-packages numpy scipy pytest
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          # PROFILER_STATIC_HTSLIB=OFF is pinned, not incidental.
+          #
+          # The default is ON, which links libhts.a plus every transitive
+          # archive pkg-config names. That only succeeds where the whole static
+          # dep chain is installed -- htscodecs, bz2, lzma, and on macOS also
+          # curl's own private deps (nghttp2, brotli), which htslib's .pc does
+          # not name. It works on a Homebrew dev box and fails on both CI
+          # runners, which is precisely how it broke every build job here.
+          #
+          # Pinning OFF makes these jobs deterministic instead of dependent on
+          # whatever dev packages a runner image happens to ship. The default
+          # (static) is covered separately by the `static-link` job below, so it
+          # stays tested rather than merely untried.
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DFQ_NATIVE=OFF \
+            -DPROFILER_NATIVE_ARCH=OFF \
+            -DPROFILER_STATIC_HTSLIB=OFF \
+            -DSCRNA_HNSW_NATIVE_ISA=OFF
+
+      # `find_package(OpenMP)` succeeding only proves the compiler accepts the
+      # flag. scrna_matrix's own probe checks `_OPENMP` is defined; this asserts
+      # the probe ran and passed, so a silently serial build cannot reach CI green.
+      - name: Assert OpenMP is genuinely active
+        run: |
+          if ! grep -q "SCRNA_OPENMP_PRAGMAS_ACTIVE:INTERNAL=1" build/CMakeCache.txt; then
+            echo "::error::OpenMP pragmas are not active; build would be silently serial"
+            grep -i openmp build/CMakeCache.txt || true
+            exit 1
+          fi
+          echo "OpenMP verified active"
+
+      - name: Build (no first-party warnings)
+        run: |
+          set -o pipefail
+          cmake --build build -j"$(getconf _NPROCESSORS_ONLN)" 2>&1 | tee build.log
+          # Warnings from our own sources only: vendored trees and toolchain
+          # headers are excluded because we do not own them.
+          if grep -E "warning:" build.log \
+               | grep -E "modules/[a-z_]+/(src|include|tests)/" \
+               | grep -v "third_party" > first-party-warnings.txt; then
+            echo "::error::first-party compiler warnings present"
+            cat first-party-warnings.txt
+            exit 1
+          fi
+          echo "no first-party warnings"
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 900
+
+      # Every compiled SIMD path, not just the one this runner's CPU selects.
+      # The kernels are tested directly by test_matrix_ops; this proves the
+      # *dispatcher* routes correctly in each configuration -- the failure that
+      # would otherwise leave every kernel test green while production ran
+      # scalar.
+      - name: Test each SIMD dispatch path
+        run: |
+          set -e
+          for isa in scalar neon avx2 avx512; do
+            echo "== SCRNA_FORCE_ISA=$isa =="
+            # Unavailable paths are ignored by detect_isa() and fall back, so
+            # this is safe to run unconditionally on any runner.
+            SCRNA_FORCE_ISA=$isa ctest --test-dir build --output-on-failure \
+              --timeout 900 -R test_matrix_ops
+          done
+          # peaks/poisson_model compares every COMPILED kernel against the
+          # scalar reference within one process, so this adds the half that
+          # cannot: that the dispatcher's own choice is the one that runs.
+          for isa in scalar neon avx2 avx512; do
+            echo "== PTO_PEAKS_FORCE_ISA=$isa =="
+            PTO_PEAKS_FORCE_ISA=$isa ctest --test-dir build --output-on-failure \
+              --timeout 900 -R peaks_poisson_model
+          done
+          # fastq_stream's kernels were compile-time selected until 2026-09-10,
+          # so with FQ_NATIVE=OFF every x86 build ran scalar. test_trimmer drives
+          # every ISA the CPU reports; forcing adds the dispatcher's own choice.
+          # An ISA not compiled in is ignored (AVX-512 is opt-in, FQ_ENABLE_AVX512).
+          for isa in scalar neon avx2 avx512; do
+            echo "== FQ_FORCE_ISA=$isa =="
+            FQ_FORCE_ISA=$isa ctest --test-dir build --output-on-failure \
+              --timeout 900 -R '^trimmer$'
+          done
+
+      # Races and scheduling bugs do not show up at one thread width.
+      - name: Test at high thread counts
+        run: |
+          for t in 1 8 32; do
+            echo "== OMP_NUM_THREADS=$t =="
+            OMP_NUM_THREADS=$t ctest --test-dir build --output-on-failure --timeout 900
+          done
+
+  # ---------------------------------------------------------------------------
+  sanitizers:
+    name: ASan + UBSan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config clang-18 libomp-18-dev libclang-rt-18-dev \
+            zlib1g-dev libdeflate-dev libhts-dev libhtscodecs-dev libbz2-dev \
+            python3-dev python3-numpy python3-scipy python3-pytest pybind11-dev
+
+      - name: Configure
+        env:
+          CC: clang-18
+          CXX: clang++-18
+        run: |
+          # -fno-sanitize-recover: UBSan defaults to printing and continuing,
+          # which turns a real defect into a log line nobody reads.
+          #
+          # `-fsanitize-recover=alignment,pointer-overflow` carves out exactly
+          # the two checks hnswlib's x86 SSE prefetch idiom inherently violates. A
+          # runtime suppressions file CANNOT silence a compiled-in trap, so with
+          # -fno-sanitize-recover=all the one upstream hnswlib alignment report
+          # (docker/ubsan.supp section 1, unfixable without breaking the .hnsw
+          # on-disk format) would abort the job no matter what the suppression
+          # says. Making just `alignment` recoverable lets the suppression apply
+          # while every other UBSan check stays fatal.
+          #
+          # The cost: a FIRST-PARTY alignment bug would now print instead of
+          # aborting. The "no unsuppressed UBSan reports" step below closes that
+          # -- it fails the job on any runtime error that survives the file.
+          cmake -S . -B build-asan -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -fsanitize-recover=alignment,pointer-overflow -fno-omit-frame-pointer -g" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all -fsanitize-recover=alignment,pointer-overflow -fno-omit-frame-pointer -g" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined" \
+            -DFQ_NATIVE=OFF -DPROFILER_NATIVE_ARCH=OFF -DSCRNA_HNSW_NATIVE_ISA=OFF \
+            -DPROFILER_STATIC_HTSLIB=OFF
+
+      - name: Build
+        run: cmake --build build-asan -j"$(getconf _NPROCESSORS_ONLN)"
+
+      # The C++ binaries link the sanitizer runtimes themselves. Preloading the
+      # runtime into them a second time makes them abort at startup, so the two
+      # halves are run separately -- the Python suite is the only one that needs
+      # the preload, because it dlopens an instrumented module into a stock
+      # CPython that was not built with ASan.
+      - name: Test (native binaries)
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1:strict_string_checks=1
+          # suppressions= carries the one upstream hnswlib alignment report we
+          # cannot fix without breaking the .hnsw on-disk format. halt_on_error
+          # keeps everything NOT listed there fatal -- see docker/ubsan.supp.
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1:suppressions=${{ github.workspace }}/docker/ubsan.supp
+        run: |
+          set -o pipefail
+          ctest --test-dir build-asan --output-on-failure --timeout 1800 \
+            -E test_python_bindings 2>&1 | tee asan-native.log
+
+      - name: Test (Python bindings, runtime preloaded)
+        env:
+          # Leak detection off here only: CPython's own interpreter state is
+          # reported as leaked at exit and is not ours to fix.
+          ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1:suppressions=${{ github.workspace }}/docker/ubsan.supp
+        run: |
+          set -o pipefail
+
+          # The ASan runtime is ARCH-SUFFIXED on Debian/Ubuntu:
+          # libclang_rt.asan-x86_64.so, not libclang_rt.asan.so. Asking for the
+          # unsuffixed name is not an error -- `-print-file-name` echoes its
+          # argument back when it cannot resolve it -- so LD_PRELOAD quietly got
+          # a bare filename, ld.so said "cannot be preloaded: ignored", the
+          # extension failed to import, and the suite SKIPPED. A sanitizer job
+          # that skips its own tests is worse than one that fails.
+          arch="$(uname -m)"
+          asan_rt="$(clang-18 -print-file-name="libclang_rt.asan-${arch}.so")"
+          if [ ! -f "$asan_rt" ]; then
+            echo "::error::could not resolve the ASan runtime (got '$asan_rt')"
+            echo "candidates present:"
+            find /usr/lib/llvm-18 -name 'libclang_rt.asan*.so' 2>/dev/null || true
+            exit 1
+          fi
+          echo "ASan runtime: $asan_rt"
+
+          # -V, not --output-on-failure: ctest suppresses a passing test's stdout,
+          # so pytest's "N passed" summary would never reach the log and the
+          # did-it-actually-run assertion below could not see it.
+          LD_PRELOAD="$asan_rt" \
+            ctest --test-dir build-asan -V --timeout 1800 \
+                  -R test_python_bindings 2>&1 | tee asan-python.log
+
+      # The suite must have RUN, not merely exited 0. `pytest.importorskip`
+      # turns a failed extension import into a skip, so a broken preload, a
+      # missing numpy or an ABI mismatch would all look like success. Requiring
+      # at least one passing assertion is what makes this job mean something.
+      - name: Assert the Python suite actually ran under ASan
+        run: |
+          if ! grep -qE "[0-9]+ passed" asan-python.log; then
+            echo "::error::Python binding suite did not execute under ASan (skipped or collected nothing)"
+            tail -20 asan-python.log
+            exit 1
+          fi
+          grep -oE "[0-9]+ passed[^,)]*" asan-python.log | tail -1
+
+      # `alignment` is recoverable above, so an unsuppressed alignment report
+      # would print without failing the job. Anything reaching the log after
+      # docker/ubsan.supp has had its say is unaccounted for, and unaccounted-for
+      # UB is what this job exists to catch.
+      - name: No unsuppressed UBSan reports
+        run: |
+          if grep -h "runtime error:" asan-native.log asan-python.log 2>/dev/null; then
+            echo "::error::unsuppressed UBSan report(s) -- see above"
+            exit 1
+          fi
+          echo "no unsuppressed UBSan reports"
+
+  # ---------------------------------------------------------------------------
+  # Configuration must not drift: modules stay independently buildable, and the
+  # OpenMP requirement stays a hard error rather than decaying into a warning.
+  config-matrix:
+    name: config verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config libomp-dev \
+            zlib1g-dev libdeflate-dev libhts-dev libhtscodecs-dev libbz2-dev python3-dev pybind11-dev
+
+      - name: Each module configures standalone
+        run: |
+          set -e
+          for m in scrna_matrix fastq_stream cuttag_profiler genomic_toolkit peaks; do
+            echo "== $m =="
+            cmake -S "modules/$m" -B "cfg-$m" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+              -DFQ_NATIVE=OFF -DPROFILER_NATIVE_ARCH=OFF -DSCRNA_HNSW_NATIVE_ISA=OFF
+          done
+
+      - name: Module on/off combinations configure
+        run: |
+          set -e
+          for flags in \
+            "-DPTO_BUILD_SCRNA_MATRIX=OFF" \
+            "-DPTO_BUILD_FASTQ_STREAM=OFF" \
+            "-DPTO_BUILD_CUTTAG_PROFILER=OFF" \
+            "-DPTO_BUILD_GENOMIC_TOOLKIT=OFF" \
+            "-DPTO_BUILD_FASTQ_STREAM=OFF -DPTO_BUILD_CUTTAG_PROFILER=OFF" \
+            "-DPTO_BUILD_PEAKS=OFF" \
+            "-DPTO_BUILD_SCRNA_MATRIX=OFF -DPTO_BUILD_GENOMIC_TOOLKIT=OFF"; do
+            echo "== $flags =="
+            rm -rf cfg-combo
+            # $flags is deliberately unquoted below: it holds a space-separated
+            # list of independent -D arguments (see the combo entries above),
+            # and quoting it would pass them as one.
+            # shellcheck disable=SC2086
+            cmake -S . -B cfg-combo -G Ninja -DCMAKE_BUILD_TYPE=Release $flags \
+              -DFQ_NATIVE=OFF -DPROFILER_NATIVE_ARCH=OFF -DSCRNA_HNSW_NATIVE_ISA=OFF
+          done
+
+      - name: Disabling every module is an error, not an empty build
+        run: |
+          # Every option in CMakeLists.txt's module list must appear here. Miss one
+          # and the tree still has something to build, so configure SUCCEEDS and
+          # this step reports "configuring with no modules should fail" -- which
+          # reads like the guard decayed when in fact the test is incomplete.
+          # That is exactly what genomic_toolkit's omission did.
+          if cmake -S . -B cfg-none -G Ninja \
+               -DPTO_BUILD_SCRNA_MATRIX=OFF \
+               -DPTO_BUILD_FASTQ_STREAM=OFF \
+               -DPTO_BUILD_CUTTAG_PROFILER=OFF \
+               -DPTO_BUILD_GENOMIC_TOOLKIT=OFF \
+               -DPTO_BUILD_PEAKS=OFF >/dev/null 2>&1; then
+            echo "::error::configuring with no modules should fail"
+            exit 1
+          fi
+          echo "correctly refused"
+
+      # BGZF must stay OPTIONAL for peaks, for the same reason htslib is
+      # optional below: the fragment-BED path needs no decompressor, and the
+      # module's premise is that it builds on a cluster with a compiler and
+      # nothing else. This asserts both halves -- it configures and passes with
+      # BAM support compiled out, and the BAM suite skips loudly rather than
+      # silently testing nothing.
+      - name: peaks builds without BGZF
+        run: |
+          set -e
+          rm -rf cfg-peaks-nobgzf
+          cmake -S modules/peaks -B cfg-peaks-nobgzf -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DPEAKS_WITH_BGZF=OFF
+          cmake --build cfg-peaks-nobgzf -j
+          ctest --test-dir cfg-peaks-nobgzf --output-on-failure
+          ./cfg-peaks-nobgzf/test_peaks_bam_streamer | grep -q "SKIP"
+
+      # htslib must stay OPTIONAL for fastq_stream. Its entire dependency set
+      # is otherwise zlib + libdeflate + pthreads, and a cluster streaming raw
+      # Illumina output should not have to install htslib to build the tool.
+      # This asserts both halves: it configures and builds without htslib, and
+      # it builds and passes its tests with it.
+      - name: fastq_stream builds without htslib
+        run: |
+          set -e
+          rm -rf cfg-fq-nohts
+          cmake -S modules/fastq_stream -B cfg-fq-nohts -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DFQ_NATIVE=OFF
+          cmake --build cfg-fq-nohts -j
+          # The BAM path must be absent, not merely unused.
+          #
+          # Checked by the absence of the OBJECT FILE, not by grepping objects
+          # for the string "FQ_ENABLE_HTS". That grep was a false positive: on
+          # Linux, pipeline.cpp.o contains the macro name (it appears in #ifdef
+          # records the compiler emits), so the check fired on every Linux build
+          # while passing on macOS -- reporting a feature-gating bug that did not
+          # exist. Reproduced on ubuntu:24.04: hts_input.cpp.o correctly absent,
+          # grep matches pipeline.cpp.o anyway.
+          #
+          # The object file is the property actually being asserted, and it is
+          # exact rather than a proxy.
+          obj_dir=cfg-fq-nohts/CMakeFiles/fastq_stream_core.dir/src
+          if compgen -G "${obj_dir}/hts_input.cpp*.o" > /dev/null; then
+            echo "::error::hts_input.cpp compiled into a build that disabled it"
+            ls -1 "${obj_dir}"
+            exit 1
+          fi
+          echo "hts_input.cpp correctly excluded"
+
+      - name: fastq_stream builds and tests with htslib
+        run: |
+          set -e
+          rm -rf cfg-fq-hts
+          cmake -S modules/fastq_stream -B cfg-fq-hts -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DFQ_NATIVE=OFF -DFQ_ENABLE_HTS=ON
+          cmake --build cfg-fq-hts -j
+          ctest --test-dir cfg-fq-hts --output-on-failure
+
+      # The regression that motivated making OpenMP mandatory. If this ever
+      # succeeds, the hard-fail has decayed back into a silent serial build.
+      - name: Missing OpenMP is a hard failure
+        run: |
+          out=$(cmake -S . -B cfg-noomp -G Ninja \
+                  -DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=ON 2>&1) && rc=0 || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::configure succeeded without OpenMP; the requirement has decayed"
+            exit 1
+          fi
+          echo "$out" | grep -q "brew install libomp" \
+            || { echo "::error::failure message lost its remediation steps"; exit 1; }
+          echo "correctly refused, with actionable remediation"
+
+      - name: Scripts are shellcheck-clean
+        run: |
+          sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck -S style scripts/*.sh
+
+  # ---------------------------------------------------------------------------
+  # The DEFAULT configuration: PROFILER_STATIC_HTSLIB=ON.
+  #
+  # Every other job pins it OFF for determinism, so without this the shipped
+  # default would be built by nobody -- the same "untested default" trap that
+  # let OpenMP silently compile to serial code. This job installs the full
+  # static dependency chain and proves the default still links.
+  #
+  # Linux only: on macOS, static htslib additionally needs libcurl's private
+  # deps (nghttp2, brotli), which htslib's .pc does not name and Homebrew does
+  # not supply as a closed set. Static linking is not supported there.
+  static-link:
+    name: static htslib (default config)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the full static dependency chain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build pkg-config g++ \
+            libhts-dev libhtscodecs-dev zlib1g-dev libdeflate-dev \
+            libbz2-dev liblzma-dev
+
+      - name: Configure and build with static htslib
+        run: |
+          cmake -S modules/cuttag_profiler -B build-static -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPROFILER_NATIVE_ARCH=OFF \
+            -DPROFILER_STATIC_HTSLIB=ON
+          cmake --build build-static -j"$(getconf _NPROCESSORS_ONLN)"
+
+      # The point of static linking is a binary with no htslib-family runtime
+      # dependency. Assert that, or the option is doing nothing for its cost.
+      - name: Assert the binary carries no htslib-family .so dependency
+        run: |
+          deps=$(ldd build-static/cuttag_profiler | grep -cE "libhts|libhtscodecs" || true)
+          ldd build-static/cuttag_profiler | sed 's/^/    /'
+          if [ "$deps" -ne 0 ]; then
+            echo "::error::static build still links htslib dynamically"
+            exit 1
+          fi
+          echo "no htslib-family shared-object dependency"
+
+      - name: Test
+        run: ctest --test-dir build-static --output-on-failure --timeout 900
+
+  # ---------------------------------------------------------------------------
+  # ThreadSanitizer. Separate job because it needs the container: no macOS
+  # toolchain combines TSan with OpenMP, and the image pins clang + libomp +
+  # libarcher so libomp's happens-before edges are visible to TSan.
+  thread-sanitizer:
+    name: TSan (containerised)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f docker/Dockerfile.tsan -t pto-tsan .
+      - name: Run TSan across thread counts
+        run: |
+          docker run --rm \
+            -e TSAN_THREAD_COUNTS="2 8 32" \
+            -e TSAN_REPEATS=2 \
+            pto-tsan

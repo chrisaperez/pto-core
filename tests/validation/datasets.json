@@ -1,0 +1,182 @@
+{
+  "_comment": [
+    "Canonical public sequencing runs used to validate pto-core against",
+    "gold-standard tools. Every accession here is real and was resolved from",
+    "the ENCODE and ENA APIs; the md5 checksums are the ones those portals",
+    "publish, and fetch.py verifies them after download.",
+    "",
+    "ENCODE files are pinned by accession, not by URL: ENCODE hrefs are",
+    "versioned paths that change when a file is re-released, whereas the",
+    "accession is the stable identity. fetch.py resolves the href and md5 from",
+    "the portal API at download time.",
+    "",
+    "ENA files are pinned by URL because ENA has no equivalent per-file",
+    "metadata endpoint that is cheaper to call than the download itself.",
+    "",
+    "Sizes are the real published sizes. Read them before staging anything:",
+    "the full set is roughly 8 GB, and the `-deep` datasets are most of it."
+  ],
+
+  "datasets": {
+    "encode-h3k4me3-gm12878": {
+      "title": "ENCODE H3K4me3 ChIP-seq, GM12878 (ENCSR000AKA)",
+      "assay": "Histone ChIP-seq",
+      "source": "https://www.encodeproject.org/experiments/ENCSR000AKA/",
+      "description": "The reference dataset for the cuttag_profiler and genomic_toolkit cases. H3K4me3 is chosen deliberately: it is a sharp, promoter-proximal mark, so a TSS meta-profile has a strong, narrowly located peak. A broad mark would produce a flat curve on which two tools could differ substantially while still correlating at 0.99, and the comparison would prove nothing.",
+      "files": {
+        "bam": {
+          "name": "ENCFF019VEK.bam",
+          "encode_accession": "ENCFF019VEK",
+          "md5": "2a810c2f2e718018e2ca81f96d45b34a",
+          "approx_bytes": 769580369,
+          "note": "GRCh38 filtered alignments; needs a local `samtools index`"
+        },
+        "peaks": {
+          "name": "ENCFF115YTM.bed.gz",
+          "encode_accession": "ENCFF115YTM",
+          "md5": "66acfce932d16261e7a2149b47aa19c9",
+          "approx_bytes": 1219928,
+          "note": "GRCh38 replicated peaks (narrowPeak)"
+        },
+        "regions": {
+          "name": "ENCFF298YZW.gtf.gz",
+          "encode_accession": "ENCFF298YZW",
+          "md5": "d03da54a11d37d410fa351bd877cc123",
+          "approx_bytes": 54322765,
+          "note": "GRCh38 transcriptome annotation; cuttag_profiler reads GTF directly"
+        },
+        "fastq_r1": {
+          "name": "ENCFF000AUB.fastq.gz",
+          "encode_accession": "ENCFF000AUB",
+          "md5": "3e2cf68651b7bfbd53642127baffe26d",
+          "approx_bytes": 1965240612,
+          "note": "unprocessed reads for the fastq_stream cases"
+        }
+      },
+      "cases": [
+        "cuttag/profile-vs-deeptools",
+        "cuttag/enriched-regions-vs-bedtools",
+        "gtk/frip-vs-bedtools",
+        "gtk/sizes-vs-samtools",
+        "gtk/markdup-vs-picard",
+        "fastq/counts-vs-seqkit",
+        "fastq/trimming-vs-fastp"
+      ],
+      "params": {
+        "reference_point": "TSS",
+        "upstream": 2000,
+        "downstream": 2000,
+        "bin_size": 50,
+        "min_mapq": 30,
+        "max_fragment": 1000
+      }
+    },
+
+    "encode-atac-k562": {
+      "title": "ENCODE ATAC-seq, K562 (ENCSR217QAB)",
+      "assay": "ATAC-seq",
+      "source": "https://www.encodeproject.org/experiments/ENCSR217QAB/",
+      "description": "Paired-end ATAC-seq alignments from the Greenleaf lab (ENCODE4), replicate 2 (the deep replicate: ~2.89M fragments after filtering). This is the reference input for the pto-peaks / MACS3 concordance harness (implementation_plan.md Phase 1.4). ATAC-seq is chosen for the same reason H3K4me3 is chosen above and for one more: accessibility peaks are narrow and punctate, so a summit-proximity number means something, and pto-peaks is a narrow-only, paired-end caller -- the in-tree synthetic demo.bam has a compressed enrichment range on which two callers rank the bulk of the peaks by noise. Ships ENCODE's own replicated narrowPeak calls (ENCFF187JYM, produced by the ENCODE ATAC pipeline's MACS2 over both replicates) as an independent third reference.",
+      "files": {
+        "bam": {
+          "name": "ENCFF121ZQX.bam",
+          "encode_accession": "ENCFF121ZQX",
+          "md5": "e71563a2ff9306894c3d6e2698811f31",
+          "approx_bytes": 241465765,
+          "note": "GRCh38 paired-end alignments, replicate 2; needs a local `samtools index`"
+        },
+        "peaks": {
+          "name": "ENCFF187JYM.bed.gz",
+          "encode_accession": "ENCFF187JYM",
+          "md5": "aecee437a8b5e9a8712830000caed343",
+          "approx_bytes": 1630105,
+          "note": "GRCh38 replicated peaks (narrowPeak), ENCODE ATAC-seq pipeline"
+        }
+      },
+      "cases": [
+        "peaks/concordance-vs-macs3"
+      ],
+      "params": {
+        "format": "BAMPE",
+        "qvalue": 0.05
+      }
+    },
+
+    "cuttag-k562-igg": {
+      "title": "CUT&Tag K562 IgG control (Kaya-Okur 2019, SRR8754612)",
+      "assay": "CUT&Tag",
+      "source": "https://www.ebi.ac.uk/ena/browser/view/PRJNA512492",
+      "description": "The smallest run in the suite (~23 MB per mate, 1.2M read pairs) and the one to reach for when iterating. It is an IgG control, so it carries no real enrichment -- which makes it a poor signal test and an excellent QC test: adapter content, duplicate rate and fragment size distribution are all present and comparable, with none of the download cost of a deep run.",
+      "files": {
+        "fastq_r1": {
+          "name": "SRR8754612_1.fastq.gz",
+          "url": "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR875/002/SRR8754612/SRR8754612_1.fastq.gz",
+          "md5": "917968076e7e2801ab7f270be0e96576",
+          "approx_bytes": 23285383
+        },
+        "fastq_r2": {
+          "name": "SRR8754612_2.fastq.gz",
+          "url": "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR875/002/SRR8754612/SRR8754612_2.fastq.gz",
+          "md5": "d81798033f0ad8c3152971da8975ec50",
+          "approx_bytes": 24206889
+        }
+      },
+      "cases": [
+        "fastq/counts-vs-seqkit",
+        "fastq/trimming-vs-fastp",
+        "fastq/alignment-rate-vs-bowtie2"
+      ],
+      "params": {
+        "bowtie2_index": null
+      }
+    },
+
+    "cuttag-k562-h3k4me3-deep": {
+      "title": "CUT&Tag K562 H3K4me3 (Kaya-Okur 2019, SRR8754610)",
+      "assay": "CUT&Tag",
+      "source": "https://www.ebi.ac.uk/ena/browser/view/SRR8754610",
+      "description": "37M read pairs, ~1.5 GB compressed across both mates. This is the deep-coverage tier: it exists to exercise the streaming paths at a size where buffering decisions actually show up, and it is the run the thread-scaling benchmark is meant to be pointed at. Excluded from the default selection because staging it is a real download.",
+      "files": {
+        "fastq_r1": {
+          "name": "SRR8754610_1.fastq.gz",
+          "url": "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR875/000/SRR8754610/SRR8754610_1.fastq.gz",
+          "md5": "4ec2643bf446fd30d0bb8c595dff9940",
+          "approx_bytes": 765676875
+        },
+        "fastq_r2": {
+          "name": "SRR8754610_2.fastq.gz",
+          "url": "https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR875/000/SRR8754610/SRR8754610_2.fastq.gz",
+          "md5": "0f5d33b6be4a7e88e512d59c35614c9b",
+          "approx_bytes": 773572559
+        }
+      },
+      "cases": [
+        "fastq/counts-vs-seqkit",
+        "fastq/trimming-vs-fastp"
+      ],
+      "params": {}
+    },
+
+    "pbmc3k": {
+      "title": "10x Genomics PBMC 3k (checked into the tree)",
+      "assay": "scRNA-seq",
+      "source": "data/pbmc3k_raw.h5ad",
+      "description": "Already in the repo, so the scrna_matrix cases run with no network access at all. 2,700 cells is small enough that the exact O(n^2) k-NN path completes in seconds, which is what makes it usable as ground truth for the HNSW recall measurement.",
+      "files": {
+        "matrix": {
+          "name": "pbmc3k_raw.h5ad",
+          "repo_path": "data/pbmc3k_raw.h5ad"
+        }
+      },
+      "cases": [
+        "scrna/hnsw-recall-vs-exact",
+        "scrna/cosine-vs-longhand",
+        "scrna/graph-agreement-vs-scanpy"
+      ],
+      "params": {
+        "pca_components": 50,
+        "knn_k": 15
+      }
+    }
+  }
+}

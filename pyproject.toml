@@ -1,0 +1,347 @@
+# Binary wheels for pto-core's three command-line engines, plus the `pto`
+# Python API over them.
+#
+# WHY THIS FILE IS AT pto-core/ AND NOT UNDER modules/
+# ---------------------------------------------------
+# `modules/scrna_matrix/pyproject.toml` -- the other wheel in this repository --
+# opens by explaining that it lives in the module rather than at the root on
+# purpose, because "a root pyproject.toml reaching down into modules/ would make
+# the wheel depend on the aggregate build, which is exactly the coupling the
+# repository layout forbids".
+#
+# That is still true, and this file is not a counterexample to it. The rule it
+# states is that a MODULE's wheel must not require the aggregate; the artifact
+# built here IS the aggregate, deliberately, and nothing under modules/ depends
+# on it. Delete this file and `packaging/` and all four modules still configure,
+# build, test and install exactly as before -- which is the same test
+# `tests/validation/` passes and the same reason CLAUDE.md accepts that
+# directory: it contains no C++, links nothing, and no module references it.
+#
+# `scrna-matrix` remains a separate distribution. It is a compiled extension
+# module rather than a CLI, and it is the one module whose configure step is a
+# HARD FAILURE without OpenMP -- vendoring it here would make this wheel
+# unbuildable on any macOS host lacking libomp, for users who wanted a FRiP
+# number. PTO_BUILD_SCRNA_MATRIX is OFF below for exactly that reason.
+#
+# The Python package source is `packaging/pto/`, NOT `python/`. pto-core's
+# CLAUDE.md names a top-level `python/` directory as a deliberate non-goal (a
+# shared layer between modules); this is a distribution concern that happens to
+# be written in Python, and the directory name says so.
+
+[build-system]
+requires = ["scikit-build-core>=0.9", "setuptools-scm>=8"]
+build-backend = "scikit_build_core.build"
+
+# Tags in this repo look like v0.1.5 -- setuptools_scm's default tag_regex
+# already strips the leading "v", so no override is needed. `root = "."`
+# because this file sits at the actual git root (unlike
+# modules/scrna_matrix/pyproject.toml, which needs "../..").
+[tool.setuptools_scm]
+root = "."
+
+[project]
+name = "pto-core"
+dynamic = ["version"]
+description = "Cache-aware C++20 engines for FASTQ QC, fragment QC and CUT&Tag profiling"
+readme = "packaging/README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "pto-core" }]
+keywords = [
+  "bioinformatics", "fastq", "atac-seq", "cut-and-tag", "cut-and-run",
+  "frip", "quality-control", "genomics", "nextflow",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+# NO RUNTIME DEPENDENCIES, and this is a feature rather than an accident.
+#
+# The install this package exists to make frictionless is `pip install pto-core`
+# on a login node, into whatever interpreter a core facility already has. Every
+# dependency is a chance for that to resolve against a pinned numpy, a
+# conda-managed pydantic or an air-gapped index and fail before the evaluator
+# ever sees a FRiP number. The API returns the tools' own JSON as plain dicts
+# precisely so nothing here needs a validation library.
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/chrisaperez/pto-core"
+Repository = "https://github.com/chrisaperez/pto-core"
+Issues = "https://github.com/chrisaperez/pto-core/issues"
+Documentation = "https://github.com/chrisaperez/pto-core/blob/main/packaging/README.md"
+
+# `pto-core`, NOT `pto`: pto-cli's [project.scripts] already binds `pto` to its
+# own client for the managed service, and two distributions claiming one script
+# name means whichever pip installed last wins, silently. See packaging/pto/cli.py.
+[project.scripts]
+pto-core = "pto.cli:main"
+
+[tool.scikit-build]
+minimum-version = "0.9"
+cmake.version = ">=3.20"
+cmake.source-dir = "."
+wheel.packages = ["packaging/pto"]
+
+# VERSION COMES FROM THE GIT TAG, not a hand-maintained number, and this is
+# the fix for a real gap rather than a preference. wheels.yml publishes to
+# PyPI (Trusted Publishing, no dry-run) on every push of a `v*` tag, and
+# nothing in that pipeline used to inject the tag into the version -- this
+# field was a static "0.1.0" no matter which tag triggered the build. That
+# means the FIRST tag would have published 0.1.0 regardless of its own name,
+# and every tag after it would have failed outright, because PyPI refuses to
+# re-accept a version number that's already been uploaded. setuptools_scm
+# reads the version from `git describe`, so pushing v0.1.6 builds and
+# publishes 0.1.6 -- automatic, and no longer a step someone can forget.
+# Requires the checkout in wheels.yml to use `fetch-depth: 0`; a shallow
+# checkout doesn't carry the tag history this depends on.
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+
+# ABI-NEUTRAL, and this is a correctness fix rather than a nicety.
+#
+# This wheel contains three ordinary executables and some pure Python. There is
+# no extension module, so nothing in it is bound to an interpreter's ABI, and
+# the default `cp312-cp312-<platform>` tag would be a false claim in the
+# restrictive direction: pip on 3.11 would refuse a wheel that runs there
+# perfectly. `py3-none-<platform>` is what the artifact actually is, and it is
+# what lets [tool.cibuildwheel] build one wheel per platform rather than five
+# identical ones per platform.
+wheel.py-api = "py3"
+
+# The modules' own `install(TARGETS ... RUNTIME DESTINATION bin)` rules are used
+# unchanged -- rewriting them to target SKBUILD_SCRIPTS_DIR would make a plain
+# `cmake --install` put binaries somewhere unexpected, and a module's build must
+# not know it is being packaged. Redirecting the whole install tree into the
+# package instead puts them at `pto/_bin/`, which `pto._binaries` looks in.
+#
+# In-package rather than on the environment's `bin/`: `fastq_stream` and
+# `genomic_toolkit` are generic enough names that shadowing a site's existing
+# copy of a differently-built binary would be a real hazard. `pto-core bin-dir`
+# prints this directory for anyone who wants the bare names on PATH.
+wheel.install-dir = "pto/_vendor"
+
+# The modules install their public headers alongside the binaries
+# (`install(DIRECTORY include/ ...)` in fastq_stream). A CLI wheel has no use
+# for them and nothing in it compiles against them, so they are dropped rather
+# than shipped as dead weight in every wheel on every platform.
+wheel.exclude = ["pto/_vendor/include/**"]
+
+build-dir = "build/{wheel_tag}"
+# NO `sdist.include`, and that omission is load-bearing.
+#
+# `sdist.include` force-adds files that would otherwise be left out -- it
+# OVERRIDES `sdist.exclude` rather than intersecting with it. Listing `modules`
+# there (the obvious thing to write) pulled the whole tree back in past every
+# exclusion below and produced a 115 MB sdist containing 99 MB of benchmark BAM.
+# The default file set is already correct; only subtraction is needed.
+#
+# `**/data/**` is the entry that matters for size, and `build*` for noise:
+# pto-core is not a git repository root -- the repository root is its parent --
+# so the .gitignore that covers both is not what decides an sdist built from
+# here.
+#
+# packaging/tests is deliberately NOT excluded. It is the suite
+# [tool.cibuildwheel] runs, and it generates its own fixtures as text (fragment
+# BED and FASTQ) precisely so it stays runnable from an sdist that carries no
+# BAM -- the same reason pto-core's own suites drive the text parsers.
+sdist.exclude = [
+  "build",
+  "build-*",
+  "venv",
+  ".venv",
+  "**/__pycache__",
+  "**/.pytest_cache",
+  "**/.DS_Store",
+  "**/data",
+  "modules/scrna_matrix/third_party",
+  "modules/*/tests",
+  "modules/*/docs",
+  ".github",
+]
+# NOTE: there is no bare "tests" or "docs" entry, and that is not an oversight.
+# These patterns match a path SEGMENT anywhere in the tree, so "tests" also
+# matches `packaging/tests` -- measured, not guessed: adding it produced an
+# sdist with no suite in it, which is the failure this comment exists to stop
+# someone re-introducing while tidying. `pto-core/tests` (the public-data
+# validation harness) therefore ships; it is ~300 KB of Python and costs
+# nothing next to the 99 MB the `**/data` entry removes.
+
+[tool.scikit-build.cmake.define]
+CMAKE_BUILD_TYPE = "Release"
+
+# OFF for the reason in this file's header: scrna_matrix hard-fails to
+# configure without OpenMP, by design, and it has its own wheel. A missing
+# libomp must not turn `pip install pto-core` into a compile error for someone
+# who wanted the CLIs.
+PTO_BUILD_SCRNA_MATRIX = "OFF"
+PTO_BUILD_FASTQ_STREAM = "ON"
+PTO_BUILD_CUTTAG_PROFILER = "ON"
+PTO_BUILD_GENOMIC_TOOLKIT = "ON"
+
+# ON as of Phase 4.1, and it was pinned OFF until the wrapper existed. The
+# rule that pin recorded still holds: this module defaults to ON in
+# CMakeLists.txt and carries `install(TARGETS pto-peaks RUNTIME DESTINATION
+# bin)`, so it reaches `pto/_vendor/bin/` whether or not anything can call it.
+# It is now callable -- `_binaries.TOOLS` lists it, `pto.call_peaks` wraps it,
+# `pto-core peaks` runs it and `pto-core doctor` reports it -- and
+# `packaging/tests/test_api.py::test_TOOLS_matches_what_the_wheel_vendors`
+# fails if a fifth binary ever arrives the same way this one nearly did.
+PTO_BUILD_PEAKS = "ON"
+
+# BAM input is REQUIRED of this wheel, not discovered. The module's own default
+# is AUTO -- libdeflate, else zlib, else compile the BAM path out and keep
+# fragment BED working -- which is right for a cluster build that may have
+# neither. It is wrong here: AUTO on a build host missing both produces a wheel
+# that installs, runs, and rejects every BAM with a message about rebuilding,
+# on a machine where rebuilding is exactly what the user paid a wheel to avoid.
+# Both wheel platforms have it (manylinux builds libdeflate in
+# `packaging/scripts/build_htslib_manylinux.sh`; macOS has Homebrew's), so
+# pinning ON costs nothing and converts a silent capability loss into a build
+# failure on the machine that can fix it.
+PEAKS_WITH_BGZF = "ON"
+
+# Tests are C++ executables nothing in the wheel needs, built once per
+# interpreter -- the same reason the three lines below turn the others off.
+# `PEAKS_BUILD_TESTS` defaults ON, so omitting this builds four more.
+PEAKS_BUILD_TESTS = "OFF"
+
+# The module's own default, restated for the reason PROFILER_NATIVE_ARCH and
+# FQ_NATIVE are restated below: AVX-512 chosen by the BUILD host is a SIGILL
+# partway through someone else's batch.
+PEAKS_ENABLE_AVX512 = "OFF"
+
+# BAM/CRAM input for fastq_stream, which is OFF in the module's own default.
+# Turning it on here costs nothing and is not a change of policy: htslib must be
+# present for this wheel regardless -- cuttag_profiler REQUIRES it -- so the
+# alternative is shipping a fastq_stream that refuses a BAM while the binary
+# beside it in the same wheel reads one. The module keeps its default, and
+# ci.yml keeps asserting it builds and tests without htslib.
+FQ_ENABLE_HTS = "ON"
+
+# THE SETTING THAT MUST NOT CHANGE FOR A REDISTRIBUTABLE WHEEL.
+#
+# Same rule `modules/scrna_matrix/pyproject.toml` states for
+# SCRNA_HNSW_NATIVE_ISA, for the same reason and with the same consequence.
+# These flags put the BUILD HOST's instruction set on the whole target. A wheel
+# is installed on machines we have never seen, and an AVX-512 instruction
+# reaching a CPU without it is SIGILL with no diagnostic the user can act on --
+# and here it is not even at import, it is partway through someone's 300-sample
+# batch. Leave both OFF.
+PROFILER_NATIVE_ARCH = "OFF"
+FQ_NATIVE = "OFF"
+# Already the module's default ("disable for redistributable binaries"), pinned
+# here anyway: the cost of restating it is a line, and the cost of a default
+# flipping under a wheel build is a SIGILL on a customer's older node.
+GTK_NATIVE_ARCH = "OFF"
+
+# Tests are C++ executables nothing in the wheel needs, built once per
+# interpreter across five interpreters.
+PROFILER_BUILD_TESTS = "OFF"
+GTK_BUILD_TESTS = "OFF"
+FQ_BUILD_TESTS = "OFF"
+
+[tool.cibuildwheel]
+# Compiled binaries, no Python extension module: one wheel per platform serves
+# every interpreter, so the ABI-neutral tag is correct and honest rather than a
+# shortcut. `py3-none-<platform>` also means an evaluator on 3.9 and a pipeline
+# on 3.13 install the same tested artifact.
+build = "cp312-*"
+skip = ["pp*", "*-musllinux*"]
+# musllinux fully skipped, not just some triples: htslib's manylinux build
+# script (packaging/scripts/build_htslib_manylinux.sh) shells out to `yum`,
+# absent on the Alpine-based musllinux image, so `pto-core ubuntu-latest
+# x86_64` failed there too before *-musllinux_x86_64 was added to this list.
+build-frontend = "build"
+test-extras = ["test"]
+# Two checks, in this order and for the same reason wheels.yml gives: the smoke
+# test runs the wheel on a fresh interpreter and catches a missing vendored
+# htslib or an ISA baked in by accident -- failures the pytest suite never
+# reaches, because it cannot import past them. `doctor` exits non-zero when any
+# engine is unresolvable, which is precisely the wheel-is-broken condition.
+test-command = [
+  "pto-core doctor",
+  "pto-core versions",
+  "python -m pytest {package}/packaging/tests -q",
+]
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+# htslib is what gives genomic_toolkit and cuttag_profiler their BAM/CRAM
+# readers, and manylinux has no package for it. Built from source here, then
+# STATICALLY linked into the binaries (PROFILER_STATIC_HTSLIB defaults ON) so
+# auditwheel has no libhts.so to vendor and the wheel has none to find at
+# runtime -- the configuration ci.yml's `static-link` job already proves, and
+# asserts carries no libhts-family .so dependency.
+before-all = "bash {package}/packaging/scripts/build_htslib_manylinux.sh"
+environment = { PKG_CONFIG_PATH = "/usr/local/lib/pkgconfig", LD_LIBRARY_PATH = "/usr/local/lib" }
+
+[tool.cibuildwheel.macos]
+# WHAT ACTUALLY LINKS WHERE, verified against a built wheel on macOS arm64
+# (Homebrew htslib 1.22) rather than assumed -- the three binaries do not
+# behave the same way and the difference matters:
+#
+#   * `cuttag_profiler` links htslib STATICALLY. PROFILER_STATIC_HTSLIB defaults
+#     ON, and on macOS that link succeeds because htslib's remaining need,
+#     libcurl, is a system dylib at /usr/lib/libcurl.4.dylib. The resulting
+#     binary depends on nothing outside /usr/lib and /System.
+#     (ci.yml's `static-link` job is Linux-only and says static htslib is
+#     unsupported on macOS. That is about the FULLY static chain it builds
+#     there, where libcurl is a Homebrew formula whose private deps -- nghttp2,
+#     brotli -- htslib's .pc does not name. Against the system libcurl the
+#     closure is already closed, so the default configuration links here.)
+#
+#   * `fastq_stream` and `genomic_toolkit` link htslib DYNAMICALLY. Neither
+#     module has a static-htslib option, and adding one would be this package
+#     reaching into module internals it does not own. `genomic_toolkit`
+#     additionally links libomp for its FRiP reduction.
+#
+# So delocate has real work to do, and the question that decides whether a
+# macOS wheel works off the build machine is whether it patches ORDINARY
+# EXECUTABLES rather than only extension modules. It does: it vendors libhts,
+# libomp, libdeflate and liblzma into `pto/.dylibs/` and rewrites the two
+# binaries' install names to `@loader_path/../../.dylibs/...`. Verified by
+# installing the repaired wheel into a clean venv with Homebrew off PATH and
+# reproducing a FRiP number.
+#
+# `--require-archs` is what turns a wheel that quietly lacks a slice into a
+# build failure instead of a user's `dyld: symbol not found`.
+before-all = "brew install htslib libdeflate libomp"
+repair-wheel-command = "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
+
+# NO universal2 WHEEL, and it is a constraint rather than an omission.
+#
+# Homebrew's htslib and libomp are per-architecture, so an arm64 runner cannot
+# link an x86_64 libhts.dylib: the cross build either fails at link time or
+# yields a wheel dyld rejects on the user's machine. This is the same
+# constraint wheels.yml records for scrna_matrix's libomp, and it takes the
+# same resolution -- build NATIVELY, one runner per architecture, and publish
+# both. `.github/workflows/wheels-cli.yml` does exactly that (macos-13 for
+# x86_64, macos-14 for arm64), so both architectures are covered; what is not
+# available is one file containing both slices.
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+# Deliberately narrow: E4/E7/E9 (pycodestyle error-level checks) and F
+# (pyflakes) are ruff's own baseline recommendation. This package's Python
+# is a thin CLI/API wrapper over the C++ engines (see CONTRIBUTING.md's
+# "zero-runtime-dependency rule"), and the pre-commit hook this backs is
+# meant to be lightweight hygiene -- catching an unused import or an
+# undefined name -- not a standing lint-quality initiative. Widening this
+# (pyupgrade, flake8-bugbear, pylint's refactor/warning categories, etc.) is
+# a deliberate choice for someone to make with the existing code in front of
+# them, not a side effect of adding pre-commit.
+select = ["E4", "E7", "E9", "F"]

@@ -1,0 +1,76 @@
+# cuttag_profiler service.
+#
+#   cd deploy && docker compose up -d --build
+#
+# THE PUBLISH ADDRESS IS THE SECURITY BOUNDARY.
+#
+# `127.0.0.1:8080:8080` binds the published port to the host's loopback
+# interface only. Writing `8080:8080` or `0.0.0.0:8080:8080` instead would expose
+# the service on every interface -- and because Docker inserts its own DNAT rules
+# ahead of the INPUT chain, that also bypasses a host ufw/iptables rule that you
+# might reasonably believe is protecting you. On EC2 the security group still
+# applies, but do not rely on two layers when the first one is free.
+#
+# cuttag_profiler's auth is a single per-run session token, not a login system
+# (see deploy/README.md), and finding M6 (arbitrary file read via a crafted BAM
+# path) is only partly closed. Reach the dashboard over an SSH tunnel:
+#
+#   ssh -N -L 8080:127.0.0.1:8080 ubuntu@<instance>
+#
+# then open http://127.0.0.1:8080/ on your laptop.
+
+services:
+  cuttag-profiler:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: pto/cuttag-profiler:latest
+    container_name: cuttag-profiler
+    restart: unless-stopped
+
+    # Loopback only. See the note above before changing this line.
+    ports:
+      - "127.0.0.1:8080:8080"
+
+    environment:
+      PROFILER_BIND: 0.0.0.0        # inside the container's namespace only
+      PROFILER_PORT: 8080
+      PROFILER_DATA_ROOT: /data
+
+    volumes:
+      # Read-only: the profiler only ever reads BAM/BED/GTF. Mounting rw would
+      # give an unauthenticated caller a write primitive if a path-handling bug
+      # is ever found, on top of the read one that H2 already is.
+      - ${PTO_DATA_DIR:-./data}:/data:ro
+
+    # Hardening. None of this is exotic; it is the standard set for a service
+    # that parses untrusted binary input (BAM) in C and C++.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    # Bounds the blast radius of a malformed-input OOM. The 1 MiB request-body
+    # cap and the 10M-bin ceiling both live in the application; this is the
+    # backstop for anything they miss.
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+          cpus: "2.0"
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
