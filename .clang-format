@@ -1,0 +1,30 @@
+# Shared clang-format defaults for pto-core's five independently-developed
+# modules. This is formatting policy, not code, so it does not conflict with
+# CLAUDE.md's "no shared layer" rule -- each module still fully owns its own
+# style via modules/<name>/.clang-format, which inherits this file and
+# overrides only what that module has always done differently (indent
+# width; see the per-module files for the rest).
+#
+# Deliberately conservative otherwise. This repository's headers carry long,
+# carefully written prose comments (see CLAUDE.md and any docs/AUDIT_*.md /
+# docs/TORTURE_*.md for why) and SIMD/BGZF code where a line break is
+# sometimes chosen for a reason a formatter can't see. ReflowComments and
+# SortIncludes are off so the tool only ever touches indentation, brace
+# placement and pointer/reference alignment -- never comment text or
+# include order.
+#
+# Vendored third-party code (modules/*/third_party/) is excluded entirely
+# via .pre-commit-config.yaml, not here: clang-format has no per-directory
+# disable, only per-directory style, and giving vendored code a style here
+# would imply an opinion about code this project does not own.
+BasedOnStyle: LLVM
+ColumnLimit: 100
+PointerAlignment: Left
+ReferenceAlignment: Left
+NamespaceIndentation: None
+ReflowComments: false
+SortIncludes: false
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+SpacesBeforeTrailingComments: 2
+AlwaysBreakTemplateDeclarations: Yes

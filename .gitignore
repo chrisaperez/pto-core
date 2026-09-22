@@ -1,0 +1,36 @@
+# Build trees. CMake output is regenerable and host-specific; never commit it.
+build/
+build-*/
+cmake-build-*/
+
+# Packaging outputs (python -m build, cibuildwheel). Regenerable, host-specific.
+/dist/
+/wheelhouse/
+
+# Demo and benchmark outputs (scripts/run_demo.sh, scripts/benchmark.sh).
+demo-out/
+results/
+
+# Datasets pulled or generated at run time. scanpy writes sc.datasets.* into
+# ./data at the repo root.
+#
+# Anchored with a leading slash on purpose: an unanchored `data/` also matches
+# modules/cuttag_profiler/data/, which holds the checked-in demo.bam that
+# scripts/run_demo.sh and deploy/ both depend on. (That module has its own
+# .gitignore excluding them already -- a separate decision about ~100 MB of
+# binary fixtures, not one to make accidentally from the root.)
+/data/
+*.h5ad
+
+# Python environments and caches.
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Editor / OS detritus.
+.DS_Store
+*.swp
+compile_commands.json

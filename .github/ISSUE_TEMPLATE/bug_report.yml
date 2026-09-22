@@ -1,0 +1,89 @@
+name: Bug report
+description: Something in pto-core crashes, refuses valid input, or produces a wrong number.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. `pto-core doctor` output and an exact repro
+        command are the two things triage needs first — a report missing both
+        usually just comes back asking for them.
+
+  - type: input
+    id: platform
+    attributes:
+      label: OS / Platform
+      description: Operating system and CPU architecture.
+      placeholder: "e.g. macOS 15 arm64, Ubuntu 22.04 x86_64, Rocky Linux 9 aarch64"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installation method
+      options:
+        - "pip install pto-core (prebuilt wheel)"
+        - "pip install pto-core --no-binary pto-core (source build via pip)"
+        - "Built from source with CMake directly"
+        - "Docker / container image"
+        - Other (describe in Additional context)
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor-output
+    attributes:
+      label: "`pto-core doctor` output"
+      description: >-
+        Run `pto-core doctor` and paste the full output. If the install is
+        broken badly enough that `pto-core` itself won't run, say so here and
+        attach the install or build log instead.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: pto-core / engine version
+      description: Output of `pto-core versions`, if it differs from what `doctor` already showed above.
+      placeholder: "e.g. pto-core 0.1.5, fastq_stream 0.1.0"
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        The exact command(s) you ran, including every flag. A minimal input
+        file, or the command that generates one, makes this actionable much
+        faster than a description of the input.
+      placeholder: |
+        1. pto-core qc reads.fastq.gz
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: >-
+        What actually happened — exit code, full error text, or the number
+        you got — rather than a paraphrase of it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Logs, a stack trace, a sanitizer report, or whether this is a regression.

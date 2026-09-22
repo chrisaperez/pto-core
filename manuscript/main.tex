@@ -1,0 +1,1148 @@
+% main.tex -- pto-core technical manuscript.
+% Compile: pdflatex main (x2). The bibliography is an inline thebibliography
+% block, natbib-compatible via \citep/\citet, so no bibtex pass is required.
+%
+% NUMERICAL INTEGRITY. Every quantitative claim in this document resolves
+% through a macro defined in numbers.tex, and every macro in numbers.tex is
+% transcribed from a named artifact on disk (see that file's header comments
+% and the per-macro source comments). Where no artifact supports a number for
+% a claim worth making, the claim is stated as an open question in
+% Section~\ref{sec:limitations} rather than estimated. Do not hand-edit a
+% figure into this file; regenerate numbers.tex from the underlying report
+% instead.
+%
+% HOUSE STYLE. This document contains no em dashes. Compound thoughts are
+% joined with colons and semicolons, set off in parentheses, or split into
+% separate declarative sentences. Dense mechanism is followed by a plain
+% restatement ("In other words", "This means that") so the engineering claim
+% lands in operational terms.
+
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[margin=0.75in]{geometry}
+\usepackage{mathptmx}
+% mathptmx remaps \rmdefault and the math fonts to Times/Symbol/Chancery
+% metrics; it does not touch \ttdefault, so \ttfamily still renders as
+% Computer Modern Typewriter rather than being remapped to a Times-metric
+% mono face. That is deliberate here: this document is dense with \texttt{}
+% for binary names, flags and identifiers, and a genuine fixed-width face is
+% what makes those legible against the Times body text.
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage[round]{natbib}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage[colorlinks=true,allcolors=blue]{hyperref}
+
+\input{numbers.tex}
+
+\setlength{\parskip}{0pt}
+
+\title{\vspace{-1em}\textbf{A Hardened, Memory-Bounded C++20 Engine for\\
+       High-Throughput Omics}}
+\author{Christopher Alexander Perez}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Genomics preprocessing and epigenomic analysis run on tool chains that
+decompress, materialize and re-read an intermediate file at nearly every
+stage boundary, and on interpreted wrappers whose failure modes are inherited
+from the C libraries beneath them rather than audited. I present
+\texttt{pto-core}, five independent C++20 engines: a streaming Poisson peak
+caller, a memory-bounded fragment-QC toolkit, a CUT\&Tag/CUT\&RUN signal
+profiler, a lock-free FASTQ streaming engine, and a cache-aligned
+sparse-matrix and approximate-$k$NN library for single-cell RNA-seq. All five
+are built on three non-negotiable properties: bounded heap execution
+independent of input size, fail-closed parsing (a corrupt record is a
+refusal, never a plausible default), and correctness demonstrated under
+adversarial sanitizer verification rather than assumed from a green test
+suite.
+
+Across \NumBenchCases{} workloads measured against the tools they replace
+(samtools, bedtools, deeptools, fastp), \texttt{pto-core} is
+\SpeedupMin{} to \SpeedupMax{} faster (median \SpeedupMedian{}) at
+\RssRangeLow{} to \RssRangeHigh{} of the reference tool's peak resident
+memory, and every measured answer agrees with the reference either exactly
+or within a stated, physically motivated tolerance
+(Table~\ref{tab:pareto-benchmarks}, Table~\ref{tab:concordance-exactness}).
+Seven adversarial verification passes found and fixed \NumAuditTotal{}
+confirmed defects across the five modules (Table~\ref{tab:audit-summary}).
+Most of those were not crashes; they were silent-wrong-answer and
+denial-of-service classes, each closed with a regression test and a
+sanitizer-clean re-verification.
+
+I report this work with the same discipline I built into it, which means
+stating two results as split decisions rather than rounding them into
+successes. The streaming peak caller (\texttt{pto-peaks}) reproduces MACS3's
+summit locations to a \MatchedSummitDist{}\,bp median offset and its
+peak-strength ranking at Pearson $r = \MatchedPearsonR{}$, but it calls
+systematically narrower intervals (median \PtoMedianWidth{}\,bp against
+MACS3's \MacsMedianWidth{}\,bp), so the pre-registered \ParityGate{}
+interval-overlap parity gate is \textbf{not met} (mean IoU \MeanIoU{}). That
+gap is documented here as a boundary-convention difference; it is not
+presented as a passing regression test. The sparse-matrix engine's HNSW
+backend processes \ScrnaCells{} million cells in \ScrnaHnswWall{}\,s at
+\ScrnaHnswRss{}\,GB, closing a feasibility gap against an extrapolated
+\ScrnaExtrapolatedHours{}-hour exact computation, but the comparative claims
+against \texttt{scanpy.pp.neighbors()} that motivated the module remain
+explicitly unmeasured. Source, build instructions and every report cited here
+are available under the MIT license at
+\url{https://github.com/chrisaperez/pto-core}.
+\end{abstract}
+
+% ======================================================================
+\section{Introduction}
+% ======================================================================
+
+\subsection{Motivation}
+
+I built \texttt{pto-core} out of a specific frustration, and I state it
+plainly because it shaped every architectural decision that follows rather
+than serving as a preface to them. A large fraction of production
+bioinformatics software is a thin interpreted orchestration layer (Python or
+R) wrapped around a C or C++ core that the orchestration layer's author did
+not write and frequently has not read, invoked through a shell pipeline that
+materializes an intermediate file at every stage boundary. The observable
+properties that decide whether such a tool survives contact with real data,
+namely its memory footprint, its behavior on malformed input and its thread
+scaling, are therefore not designed at all. They are inherited from whichever
+library happened to be linked. This means that the most important performance
+and correctness characteristics of the software are accidental properties of
+its dependency graph. That is not a tuning problem: it is an architectural
+one.
+
+Three consequences of that regime recur, and this project set out to refuse
+each of them structurally rather than patch them case by case. The first is
+memory bloat that scales with input size when nothing in the algorithm
+requires it, typically because an intermediate file is fully materialized
+where a stream would do. The second is parsers that fail \emph{open}:
+a corrupted field becomes a plausible default, a truncated file becomes a
+short but valid one, and a partially read stream is treated as a clean
+end-of-file. The third is pipelines that fail \emph{mid-run} and
+non-deterministically, in a way a retry masks rather than explains. The
+second of these is the one that should alarm a working scientist most,
+because its output is not an error. Its output is a number, and the number is
+wrong.
+
+I want to be careful about the scope of that critique. None of it is a claim
+about any specific named tool's internals, and I make no such claim without a
+reproduced artifact to back it; that is the same standard this document holds
+its own numbers to (Section~\ref{sec:results}). The claim is about a failure
+\emph{class}, and the best evidence I can offer for its reality is
+adversarial evidence against my own work. Building five engines
+\emph{deliberately} against these three patterns still produced
+\NumAuditTotal{} confirmed instances of them before sustained sanitizer-driven
+verification found and closed each one (Section~\ref{sec:verification}). The
+lesson I draw is not that any particular library is unusually bad. It is that
+this class of defect is the default outcome of writing performance-path C++
+without an adversarial verification discipline applied to it continuously,
+and that the discipline, not the raw throughput, is the harder and more
+transferable half of this work.
+
+\subsection{A convergence of interests}
+
+The position I take here sits at an intersection whose components are
+individually common and jointly rare: hardware-aware systems programming
+(cache-line layout, runtime SIMD dispatch across NEON, AVX2 and AVX-512BW,
+lock-free single-producer/single-consumer queues); a verification discipline
+closer to formal-methods practice than to conventional unit testing
+(sanitizer-driven fuzzing against explicit fail-closed invariants,
+differential testing against arbitrary-precision references); and
+computational biology's own domain constraints (BGZF block framing, 0-based
+half-open coordinates, and the FRiP and Benjamini--Hochberg statistics by
+which a result is judged). Each of those disciplines has a mature literature.
+Very little software sits in all three at once.
+
+I propose that the correct response to the status quo is to stop treating
+bioinformatics tooling as disposable scripting and start treating it as
+safety-critical systems engineering. The justification is not aesthetic. A
+peak caller's output becomes a figure, the figure becomes a claim, and the
+claim outlives every detail of the pipeline that produced it. Software whose
+silent failure mode is a plausible wrong number carries the same class of
+risk as an unaudited control system; the difference is only how long it takes
+for the failure to surface. Each of the five modules below is small enough to
+read end to end, and that is a deliberate design constraint rather than a
+happy accident: a correctness claim about a sequencing-scale reduction is
+only as credible as the code making the claim is auditable.
+
+\subsection{Design ethos and contributions}
+
+Three properties hold across all five modules, not as aspirations but as
+invariants with regression tests behind them:
+
+\begin{itemize}\itemsep2pt
+\item \textbf{Bounded heap execution.} Peak resident memory is a property of
+  the pipeline topology (buffer-pool size, ring capacity, batch size) and not
+  of input size. \texttt{fastq\_stream}'s peak RSS is \FqPeakRss{}\,MB
+  independent of file size (\S\ref{sec:fastq-stream});
+  \texttt{genomic\_toolkit} processes fragments in 4096-record,
+  16-byte-per-record batches with no sort and no intermediate file
+  (\S\ref{sec:gtk}).
+\item \textbf{Fail-closed parsing.} A malformed record is a refusal, not a
+  default. The rule is repository-wide: a corrupt MAPQ column must not
+  silently pass a quality filter, and a truncated BGZF block must not
+  silently report a shorter library as a complete one. It is also the single
+  most frequently rediscovered defect class in the audit trail
+  (Section~\ref{sec:verification}); the same failure to check a parse result
+  was found and fixed independently in \emph{four} different modules across
+  three separate review passes.
+\item \textbf{Verification over assertion.} Every module ships a
+  dependency-free test suite (no GoogleTest, no Catch2, because these tools
+  must build on a bare cluster that has a compiler and nothing else) and has
+  been driven under AddressSanitizer~\citep{serebryany2012asan} and
+  UndefinedBehaviorSanitizer with \texttt{-fno-sanitize-recover=all}, under
+  mutation fuzzing, and, where concurrency is load-bearing, under
+  ThreadSanitizer~\citep{serebryany2009tsan}.
+\end{itemize}
+
+The contributions, each backed by a citable artifact in the repository, are
+as follows:
+
+\begin{enumerate}\itemsep2pt
+\item Five independently buildable C++20 engines covering streaming peak
+  calling, fragment QC, chromatin signal profiling, FASTQ preprocessing and
+  single-cell sparse linear algebra, unified by a deployment constraint (run
+  on the host that already holds the data) rather than by a shared code
+  layer.
+\item A cross-tool benchmark harness that reports speed, peak memory
+  \emph{and} answer agreement together, so that a speedup is never reported
+  over a different answer (Section~\ref{sec:results}).
+\item An adversarial verification record covering \NumAuditTotal{} confirmed
+  defects across seven passes (Table~\ref{tab:audit-summary}), maintained as
+  a living document rather than a one-time disclosure. It includes four cases
+  in which an already-fixed defect class recurred in a sibling code path,
+  which I analyze as a methodological finding in its own right
+  (Section~\ref{sec:verification}).
+\item A quantified concordance study against the field's incumbent peak
+  caller that reports a pre-registered parity gate as \textbf{not met}, with
+  the measured shape of the disagreement, rather than redefining the gate
+  after the fact in order to pass it (Section~\ref{sec:peak-concordance}).
+\end{enumerate}
+
+To see how these principles interact, we begin by defining the five engines
+and the deployment constraint that unifies them, then work through the
+mechanism of each in turn (Section~\ref{sec:architecture}). Next, we examine
+the verification methodology that produced the defect record and the
+invariants that now prevent its recurrence (Section~\ref{sec:verification}).
+We then evaluate the engines against the tools they replace, including the
+one concordance study whose pre-registered gate was missed
+(Section~\ref{sec:results}). Finally, I set out what this system does not yet
+establish (Section~\ref{sec:limitations}).
+
+% ======================================================================
+\section{System Overview}
+% ======================================================================
+
+\begin{table}[t]
+\centering
+\caption{The five \texttt{pto-core} modules. Each is a self-contained CMake
+project with its own tests and install rules; there is no shared runtime or
+code layer between them by design.}
+\label{tab:modules}
+\small
+\begin{tabular}{ll}
+\toprule
+Module & Role \\
+\midrule
+\texttt{pto-peaks} & Streaming Poisson peak calling \\
+\texttt{genomic\_toolkit} & Fragment size/dup/FRiP QC \\
+\texttt{cuttag\_profiler} & CUT\&Tag/CUT\&RUN signal matrices \\
+\texttt{fastq\_stream} & In-memory FASTQ QC and trimming \\
+\texttt{scrna\_matrix} & Sparse CSR + exact/HNSW $k$-NN \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All five modules are C++20, built with CMake, and independently buildable
+with every other module deleted. What unifies them is a deployment
+constraint rather than a shared abstraction: each tool is designed to run on
+the machine that already holds the sequencing data, with no service
+dependency and no network egress required for the computation itself. An
+earlier iteration introduced a shared top-level \texttt{include}/\texttt{python}
+layer across modules. It was reverted, and the repository's build
+documentation records the absence of such a layer as a deliberate non-goal
+rather than an oversight. Table~\ref{tab:modules} summarizes the five;
+Section~\ref{sec:architecture} takes each in turn.
+
+% ======================================================================
+\section{Architecture and Systems Principles}
+\label{sec:architecture}
+% ======================================================================
+
+\subsection{\texttt{pto-peaks}: streaming Poisson peak calling}
+\label{sec:peaks}
+
+\texttt{pto-peaks} calls narrow peaks from a coordinate-sorted fragment BED
+or BAM in a single pass, with no sort and no intermediate bedGraph. Three
+components do the work: a per-base pileup feeding three \emph{centred}
+sliding background windows (1\,kb, 5\,kb and 10\,kb, held as fixed-capacity
+rings rather than resized buffers), a SIMD-vectorized Poisson
+tail-probability kernel, and an IDLE/IN\_PEAK/SUMMIT\_SEARCH/CLOSING state
+machine that consumes the scored bases and applies Benjamini--Hochberg FDR
+control across all candidates.
+
+Two properties are architecturally load-bearing rather than incidental
+optimizations. The first is that the background windows are centred and
+truncated at contig ends. A trailing window would judge a peak against its
+own rising edge and clip every call at its 3$'$ end; an untruncated centred
+window at a contig boundary would divide by background that does not exist.
+The second concerns where vectorization is possible at all. The state machine
+cannot be vectorized, because the state at base $i{+}1$ depends on the state
+at base $i$, but the Poisson evaluation feeding it can: bases are queued and
+scored in a batch through one call into a SIMD kernel (scalar, NEON, AVX2 or
+AVX-512BW, selected once at startup by runtime CPUID dispatch rather than by
+a compile-time \texttt{-march} flag that would SIGILL on any machine other
+than the one that built the binary). Bases that provably cannot clear the
+significance cutoff never enter the queue, admitted by a closed-form bound on
+the Poisson tail's median. In other words, the sequential part of the
+algorithm stays sequential and only the arithmetic goes wide.
+
+The kernel contains no libm call anywhere, and that is deliberate:
+\texttt{log}, \texttt{exp} and \texttt{log1p} are open-coded from their
+series expansions so that all four ISA variants have something to vectorize,
+since no standard math library portably exposes a vector transcendental
+entry point. Numerical degeneracy fails closed. A zero, negative, NaN or
+infinite background $\lambda$ returns $p=1$ rather than the naive
+evaluation's $p \to 0$. The direction of that choice is the entire point: the
+naive form reports every centromere, assembly gap and unmeasured window as
+the most significant peak in the genome. A caller that ranks assembly gaps
+above real biology is not slightly miscalibrated. It is inverted.
+
+BAM input is decoded directly from BGZF and alignment records by byte-shift
+arithmetic rather than \texttt{reinterpret\_cast}, because BAM packs
+\texttt{int32} fields at whatever offset the previous record ended on, which
+leaves them routinely misaligned; the cast is undefined behavior and
+\texttt{-fsanitize=alignment} reports it as such. The per-block CRC32 check is
+retained rather than skipped for speed. A corrupt block that happens to
+inflate into plausible alignment records is precisely the silent-wrong-answer
+failure this project exists to refuse.
+
+\subsection{\texttt{genomic\_toolkit}: memory-bounded fragment QC}
+\label{sec:gtk}
+
+\texttt{genomic\_toolkit} computes fragment size distributions, duplicate
+rate and FRiP (Fraction of Reads in Peaks) in one streaming pass over a
+coordinate-sorted BAM, BEDPE or fragment BED, replacing a shell pipeline that
+would otherwise sort, spill to disk and make several full passes over the
+data. Everything downstream of the reader speaks a 16-byte, coordinate-only
+\texttt{Fragment} struct, handed to consumers in 4096-record batches
+(64\,KiB, and therefore L2-resident) that are invalidated as soon as the
+callback returns. Nothing is ever materialized as text.
+
+Duplicate detection needs no global state on coordinate-sorted input. Two
+fragments are duplicates when their 5$'$ ends agree, and on sorted input every
+fragment sharing a start position arrives contiguously, so the only state
+required is a set keyed on (end, orientation) that lives for exactly one
+start position. This means that memory tracks the depth of the deepest
+pile-up and never the size of the file: a 200\,GB BAM and a 200\,MB BAM have
+the same resident footprint here. FRiP is then computed as a reduction
+against peaks merged into a disjoint ascending cover at load time and queried
+by binary search. Merging is not a performance trick. It is the definition of
+the statistic: an unmerged peak file queried by naive interval intersection
+double-counts a fragment spanning overlapping peaks, and can report a FRiP
+above~1.
+
+The module states its divergences rather than absorbing them. Duplicate
+identity uses the \emph{aligned} fragment span where Picard
+\texttt{MarkDuplicates} uses the unclipped 5$'$ position, so a pair whose two
+copies were soft-clipped differently is one duplicate to Picard and two
+distinct fragments here; there is no optical-duplicate distinction and no UMI
+awareness, which makes \texttt{estimate\_library\_size()} a lower bound on
+library complexity rather than a point estimate. A breaking change is
+likewise stated rather than hidden: following an audit fix, column 5 of a
+fragment BED is read as a 10x-style read-pair count only under an explicit
+\texttt{--with-counts} flag. In a BED5 or BED6 that column is a score
+(\texttt{bedtools bamtobed}~\citep{quinlan2010bedtools} writes MAPQ there),
+and reading it unconditionally had silently multiplied every reported
+statistic by the score column's value. Finally, all 64-bit accumulators
+(fragment-base totals, size sums) are checked additions rather than raw
+arithmetic. That guard was added after a crafted input, reachable from as few
+as \GtkOverflowLinesSigned{} lines under \texttt{--max-length 0}, was measured
+driving the signed accumulator past $2^{63}$
+(Section~\ref{sec:verification}).
+
+\subsection{\texttt{cuttag\_profiler}: reference-point signal profiling}
+\label{sec:cuttag}
+
+\texttt{cuttag\_profiler} computes CUT\&Tag and CUT\&RUN
+\citep{kayaokur2019cuttag} reference-point signal matrices (loci $\times$
+bins) directly from an indexed BAM in one pass. It replaces the two-stage
+\texttt{deeptools} pipeline~\citep{ramirez2016deeptools}, in which
+\texttt{bamCoverage} converts the BAM into a genome-wide bigWig and
+\texttt{computeMatrix} then windows that track, materializing an intermediate
+at genome scale even when the loci of interest cover a small fraction of the
+genome. Work is distributed one locus per task across a worker pool, block
+partitioned so that each worker writes a contiguous stripe of the output
+matrix and the write path needs no synchronization at all. The
+\texttt{htslib}~\citep{danecek2021htslib} index and header are immutable once
+loaded and are shared read-only, while each worker leases its own
+\texttt{htsFile} handle from a pool, because decompression state is mutable
+per handle.
+
+One deliberate anti-pattern is worth recording, since it looks like a missed
+optimization. \texttt{htslib} offers a thread pool that parallelizes BGZF
+block inflation, and the intuitive configuration is one pool sized to the
+machine. Here that is actively harmful: with per-region parallelism already
+saturating the cores, routing every block through a single shared pool
+serializes inflation behind that pool's queue and adds a hand-off per block.
+Rather than merely adding threads wherever a library offers them, the
+profiler places parallelism at the level where the work actually divides,
+which is one locus per task, and lets each handle inflate on the thread that
+owns it.
+
+Two correctness properties were closed by the 2026-09-11 audit
+(\S\ref{sec:verification}) and are architecturally central rather than
+incidental bug fixes. First, regions on a contig absent from the BAM are now
+excluded from the column mean, from BPM's summed signal and from scaling,
+while remaining in the output matrix and carrying their names. Previously
+they were averaged in as a missing value of zero, which diluted the
+meta-profile in direct proportion to how many regions were skipped. The
+resulting curve was smooth, plausible and wrong by a constant factor the user
+had no way to see. Off-contig bins inside a \emph{kept} window are still
+treated as missing, which matches \texttt{deeptools}' own
+\texttt{--missingDataAsZero} semantics. Second, bin geometry
+(\texttt{width} $\times$ \texttt{bin\_index}) is bounded so that every product
+fits in \texttt{int64\_t}: the window ceiling is \texttt{INT64\_MAX} divided
+by the \CuttagMaxBins{}-bin limit, approximately
+\CuttagMaxWindowBp{}\,Gbp, and it is enforced identically at the CLI and at
+the \texttt{/api/profile} HTTP handler. That bound exists because an
+unbounded window was found to overflow signed 64-bit arithmetic and write
+wrong bin offsets in a Release build with no diagnostic whatsoever.
+
+The interactive dashboard is an embedded HTTP server, bound to
+\texttt{127.0.0.1} by default, serving assets compiled into the binary under a
+strict \texttt{Content-Security-Policy}. It is structurally excluded from the
+multi-tenant cloud deployment of this codebase: a
+\texttt{-DPTO\_CLOUD\_BUILD=ON} build compiles the server out of the binary
+entirely, verified by the absence of \texttt{socket}, \texttt{bind} and
+\texttt{listen} symbols in the resulting image. The reasoning is that a
+per-run session token bound to one operator's browser is the wrong isolation
+primitive for a service whose isolation boundary is one ephemeral compute
+task per job. In other words, the safest way to secure a listening port in
+that deployment is to ensure it cannot be compiled into existence.
+
+\subsection{\texttt{fastq\_stream}: lock-free in-memory FASTQ streaming}
+\label{sec:fastq-stream}
+
+\texttt{fastq\_stream} performs single-pass FASTQ quality control, adapter
+removal and quality trimming entirely in memory, streaming clean reads
+directly into an aligner through a named pipe. It eliminates the intermediate
+compressed FASTQ that a conventional \texttt{zcat}, trim and \texttt{gzip}
+pipeline writes and then reads back, whether the trimming stage is
+Trimmomatic~\citep{bolger2014trimmomatic}, fastp~\citep{chen2018fastp} or
+anything else. The engine is a five-rank pipeline (reader, an optional pool
+of inflaters, a record assembler, a pool of quality-control workers, and a
+writer) connected by genuinely single-producer/single-consumer lock-free ring
+buffers. The word ``genuinely'' is carrying weight. An SPSC ring is correct
+only with exactly one producer thread and one consumer thread, and a shared
+queue drained by a worker pool is neither; so the topology is arranged such
+that no ring is ever touched by more than two threads. In other words, the
+queue is fast because the topology guarantees its precondition, not because a
+weaker algorithm was tuned until it looked fast.
+
+Head and tail indices are separated by
+\texttt{std::hardware\_destructive\_interference\_size} so that the producer's
+write and the consumer's read never contend for the same cache line, and each
+side caches the opposite index in thread-private storage so a steady-state
+operation never reads the other core's line at all. Measured inter-stage
+hand-off latency is \FqSpscLatency{}\,ns at \FqSpscRate{}\,M items per second
+(module README; see \S\ref{sec:limitations} on the provenance of these
+single-host figures). Chunk order is preserved without a reorder buffer:
+chunk $k$ is dispatched to lane $k \bmod D$, each lane preserves order
+internally, and a round-robin collector recovers stream order for free. This
+holds because a worker emits exactly one output buffer per input chunk, which
+trimming guarantees since it only ever shrinks records.
+
+The most consequential architectural finding in this module is that
+\emph{input framing, not the QC arithmetic, determines whether decompression
+can be parallelized at all}. \texttt{libdeflate}~\citep{biggers2016libdeflate}
+exposes no streaming interface; it inflates a complete gzip member into a
+caller-sized buffer, which is the source of its speed rather than an API
+oversight. A single-member plain gzip stream, which is what
+\texttt{bcl2fastq}, DRAGEN and \texttt{gzip} itself produce, has exactly one
+member spanning the whole file, so no interior DEFLATE block boundary can be
+located without inflating everything before it. Parallel decompression of
+such a stream is therefore structurally impossible, for any tool, no matter
+how many cores it is given. BGZF, the SAM/BAM block-gzip framing, is instead
+a sequence of independent members that each declare their own compressed size
+and expand to at most 64\,KiB, so members can be located by header arithmetic
+and inflated concurrently. Measured on this engine, BGZF sustains
+\FqBgzfThroughput{}\,MB/s of compressed throughput against
+\FqGzipThroughput{}\,MB/s for plain gzip on identical content. That
+\FqFramingSpeedup{} difference costs nothing to obtain: it follows from
+running \texttt{bgzip} rather than \texttt{gzip} once, at the moment the
+FASTQ is generated, and it then benefits every downstream consumer of that
+file permanently. The bottleneck was never the arithmetic. It was the
+container.
+
+Peak resident memory is structurally bounded by
+$(\text{lanes} \times \text{slots} + \text{in-flight}) \times 256\,\text{KiB}$
+and is independent of input size, measured at \FqPeakRss{}\,MB on a 200k-read
+run. Quality kernels (per-cycle sums, $Q{\geq}20$ and $Q{\geq}30$ fractions,
+adapter seed-and-extend) are runtime-dispatched across scalar, NEON, AVX2 and
+AVX-512BW paths, and each is asserted bit-identical to a scalar
+double-precision reference at every read length from 0 to 300. That range is
+chosen deliberately to cover the sub-vector tails, which is where such
+kernels typically diverge from their scalar reference. A maximum record size
+of \FqRecordLimit{}\,KiB (roughly 32\,kbp) is a stated capability limit
+rather than an oversight; raising it means raising per-lane buffer memory,
+which is a capacity decision and not a bug fix.
+
+\subsection{\texttt{scrna\_matrix}: cache-aligned sparse matrices and
+approximate \texorpdfstring{$k$}{k}-NN}
+\label{sec:scrna}
+
+\texttt{scrna\_matrix} is a header-only C++20 library built around
+\texttt{Block\_CSR<T>}, a 64-byte (cache-line) aligned compressed
+sparse-row/column representation with zero-copy \texttt{pybind11}
+interoperability. A NumPy buffer that is already 64-byte aligned,
+C-contiguous and (critically, after a defect closed in review) provably
+immutable can be \emph{adopted} without a copy. The immutability requirement
+is not fastidiousness: the module's AVX2 and AVX-512 gather kernels index a
+dense scratch buffer with the adopted column indices using \emph{unchecked}
+hardware gathers. This means that the bounds validation performed once at
+construction is the only thing standing between the inner loop and an
+arbitrary memory write, which is exactly why a buffer the caller can still
+mutate afterward may not be adopted at all.
+
+The module offers two $k$-nearest-neighbor backends with genuinely different
+operating regimes, rather than one algorithm tuned to look good on a headline
+benchmark: an exact $O(n^2)$ brute-force path that operates natively on the
+sparse representation, and an approximate path over vendored
+\texttt{hnswlib}~\citep{malkov2018hnsw} that must densify its input first,
+since HNSW indexes only dense fixed-dimension vectors. That densification is
+why the approximate backend is reported as \emph{losing} to exact brute force
+by \ScrnaHnswGeneSpaceSlowdown{} in raw \mbox{1,000-dimensional} gene space:
+each HNSW distance touches 1,000 dense dimensions where the exact path
+touches roughly 60 non-zeros, so a smaller number of comparisons does not pay
+for their individual cost. On a 50-dimensional PCA embedding with real
+cluster structure the ordering reverses, and HNSW wins by
+\ScrnaHnswFiftyKSpeedup{} at 50,000 cells at a recall of
+\ScrnaHnswFiftyKRecall{}. In other words, the representation and not the
+algorithm decides which backend wins, and the module documents that as a rule
+of thumb rather than leaving each user to rediscover it by benchmarking both.
+
+Reductions accumulate in a widened type (\texttt{WideAcc<T>}, which is
+\texttt{double} for \texttt{float} input) and narrow exactly once through a
+checked cast, a rule enforced at build time by a source-level scan rather
+than left to code review. The reason is worth stating precisely, because the
+intuition about floating-point error is wrong here. A bare \texttt{float}
+accumulator does not gradually lose precision on large input; it saturates to
+$\pm\infty$, and the downstream guard that maps a non-finite similarity to
+zero then reports two \emph{identical} rows as each other's worst possible
+match. The input was finite, no exception was raised, no diagnostic was
+printed, and the neighbor graph is wrong. This exact defect class was
+independently found and fixed at four separate sites across three review
+passes (\S\ref{sec:verification}) before the source-scan test existed to
+prevent a fifth.
+
+Concurrent index mutation is serialized behind a mutex that covers the
+label-count check and the insertion together, closing a data race that had
+silently discarded half the rows of two concurrently-added sets while raising
+no exception and leaving a perfectly valid index behind. Queries deliberately
+do \emph{not} take that lock: \texttt{hnswlib}'s search is safe against a
+concurrent insertion, and serializing queries would forfeit exactly the
+parallel query throughput that releasing the Python GIL during a call exists
+to provide.
+
+% ======================================================================
+\section{Formal Invariants and Adversarial Verification}
+\label{sec:verification}
+% ======================================================================
+
+\input{table_audit_summary.tex}
+
+\subsection{Methodology}
+
+Verification here means driving hostile input at the shipped binary or the
+public header under a sanitizer build. It does not mean writing unit tests
+for behavior already believed correct. The protocol is common to all five
+modules and was repeated across seven distinct passes between 2026-08-15 and
+2026-09-11 (Table~\ref{tab:audit-summary}). First, establish a
+sanitizer-clean baseline on the pre-existing suite under AddressSanitizer and
+UndefinedBehaviorSanitizer with \texttt{-fno-sanitize-recover=all}, so that
+any later finding is attributable to the probe rather than to a pre-existing
+gap in the harness. Second, reproduce every finding against the pre-fix
+binary or header \emph{before} patching it, and record the reproduction so it
+can be re-run. Third, fix the defect and add a regression test in the same
+change. Fourth, re-verify the full sanitizer suite, adding ThreadSanitizer
+wherever the defect was concurrency-related. Nothing is recorded as a finding
+on suspicion alone.
+
+Negative results are recorded with the same care. Where a suspected defect
+could not be reproduced through the public API, the record says so
+explicitly. One example is a latent finite-arithmetic overflow in a
+cosine-similarity helper that \texttt{Block\_CSR}'s own input validation makes
+unreachable in practice; it was fixed anyway, as defence in depth for a direct
+caller of the public header, and documented as unreachable rather than
+written up as an exploit that was never demonstrated.
+
+Two purpose-built instruments recur across modules. The text-format readers
+in \texttt{genomic\_toolkit}, \texttt{fastq\_stream} and elsewhere are driven
+by seeded mutation fuzzers (bit flips, byte substitution, deletion,
+insertion, duplication and truncation) rather than by a coverage-guided
+engine. That choice is practical rather than principled:
+\texttt{libFuzzer}'s runtime is not shipped with the Apple Clang toolchain
+used for local development, and a harness that runs only where a
+coverage-guided engine happens to be installed does not run in this project's
+own CI. A fixed seed also makes every failure reproduce exactly. The Poisson
+kernel in \texttt{peaks} is instead checked against arbitrary-precision
+(80-digit \texttt{mpmath}) golden values rather than against itself, at grid
+points chosen to stress the kernel's own stated accuracy model, which is a
+difference of three terms each reaching $O(k\ln k)$ whose relative error is
+machine epsilon times the largest term. The tolerances are derived from that
+model; they are not observed values written down after a passing run.
+
+\subsection{Representative findings}
+
+The full record, with a reproduction, patch and regression test for each
+finding, lives in the repository's \texttt{AUDIT}, \texttt{TORTURE} and
+\texttt{REVIEW} documents. Five are worth stating here in the detail that
+explains \emph{why} they were findings, because each one instantiates a
+general failure mode rather than a one-off typo.
+
+\textbf{Silent format misdetection.} \texttt{fastq\_stream} had no code path
+that knew any quality encoding but Phred+33. The identical 2,000 reads,
+encoded as Phred+64 and read as Phred+33, produced a mean quality of
+\PhredMisreadMeanQSixtyFour{} against a correct value of
+\PhredMisreadMeanQThirtyThree{}, and a $Q_{30}$ rate of
+\PhredMisreadQThirtyRateHigh{} against a correct \PhredMisreadQThirtyRateLow{}.
+Every read passed quality trimming untouched and the process exited 0. The
+fix is a histogram-based heuristic evaluated at no per-base cost, keyed on
+three properties that hold together only for Phred+64 misread as Phred+33:
+nothing below Q31, nothing above Q72, and at least 1\% of bases at Q61 or
+higher. An explicit \texttt{--phred-offset} override is available, and
+undeclared Phred+64 input now exits with the repository-wide code meaning
+``the input's shape made the answer wrong'' instead of continuing silently.
+
+\textbf{Unchecked multiplication sizing a write.} Four of the five HNSW graph
+producers in \texttt{scrna\_matrix} sized their result buffer as $n \times k$
+with no overflow check, while the fifth (brute-force $k$-NN) had been patched
+for exactly this in an earlier review. With $n=4$ rows and
+$k=\ScrnaOverflowK{}$, that product wraps to exactly 0: both allocations
+succeed against empty vectors, the search proceeds normally, and the result
+write lands on a null pointer, confirmed as a store-to-null under UBSan. The
+fix is a single checked helper called by every producer including brute
+force, so that the definition exists exactly once. Notably, the same audit
+reports two \emph{other} findings of the same shape, in which an already-fixed
+defect class survived in a sibling path the earlier fix did not walk.
+
+\textbf{Truncation that decodes cleanly.} A BGZF stream (a BAM, or a
+\texttt{.gz}) cut exactly at a block boundary, which is what an interrupted
+\texttt{aws s3 cp} or \texttt{cp} routinely produces, decodes without error.
+The CRC of every remaining block is intact and only the trailing 28-byte
+end-of-file marker is missing, so there is nothing for a record-level parser
+to trip on. Both \texttt{genomic\_toolkit} and \texttt{fastq\_stream}
+reported a plausible partial statistic for such a file at exit~0 before this
+was closed. The fix checks for the EOF marker immediately after the header
+and before any record is read, which is the rule \texttt{samtools quickcheck}
+and \texttt{pto-peaks}' own BAM reader already enforced; it was applied to
+the two modules that lacked it.
+
+\textbf{A validation gap at the second entry point.}
+\texttt{cuttag\_profiler}'s window and bin-count guards were added to the CLI
+in \texttt{main.cpp} when the defect was first found. But
+\texttt{ProfileOptions} has a second constructor in effect: the
+\texttt{POST /api/profile} handler, which built the same struct from
+untrusted JSON while applying only a subset of the checks. An unauthenticated
+request with a sufficiently large \texttt{upstream}/\texttt{downstream} pair
+sized a 640\,MB-per-region allocation and had the kernel SIGKILL the server
+with no diagnostic at all, which is the exact scenario the CLI-side fix
+believed it had already closed. The durable repair moved every guard onto
+\texttt{ProfileOptions::validate()} itself, called by both entry points and
+again by the allocating function as defence in depth. This means a future
+third caller cannot reintroduce the gap by construction, rather than merely
+being expected to remember the check.
+
+\textbf{A cliff, not a slope, in a float accumulator.}
+\texttt{scrna\_matrix}'s sparse dot-product kernel accumulates in
+\texttt{float}. Below roughly $10^{17}$ in row magnitude, the float path is
+exact enough to change nothing at all: a differential test against an exact
+double reference found zero neighbor-set changes across every ranked
+position. Above a measured threshold the dot product saturates to $+\infty$,
+the guard mapping non-finite similarities to zero fires, and two
+\emph{identical} rows are reported as maximally dissimilar. In one measured
+sweep, \FloatCliffRowsWrong{} of \FloatCliffRowsTotal{} rows had a different
+and wrong neighbor set once magnitudes crossed the threshold. The behavior is
+not a gradual precision slope; it is a cliff, and everything past the edge is
+wrong at once. The chosen fix rejects the input at the boundary, with
+\texttt{Block\_CSR::validate()} bounding squared row norm by Cauchy--Schwarz
+four orders of magnitude below \texttt{FLT\_MAX}, rather than widening the hot
+$O(n^2)$ kernel. That is an explicit performance trade, taken deliberately
+rather than as a drive-by change to the module's headline benchmark.
+
+\subsection{What did not break}
+
+Reporting only findings would misstate the balance of evidence, so what
+survived hostile testing is recorded with the same care as what did not. The
+SPSC ring-buffer memory ordering (release-store of the tail index before
+publication, acquire-load before consumption) held clean under
+ThreadSanitizer across every adversarial input tried.
+\texttt{cuttag\_profiler} produced bit-identical output across thread counts
+from 1 to 96. Zero-norm input vectors, which is what an empty cell looks
+like, were measured rather than merely argued to produce no NaN anywhere in
+\texttt{scrna\_matrix}: the all-zero row scores a defined similarity of 0
+against everything, which is the correct degradation for a cell with no
+counts, and it can never displace a real neighbor in anyone else's result.
+
+One reported ThreadSanitizer race deserves its own note, because the
+temptation to dispose of it in either direction was real. The race appeared
+in \texttt{genomic\_toolkit}'s OpenMP FRiP reduction, and it was investigated
+to ground rather than reflexively suppressed or accepted. It reproduced only
+against an uninstrumented \texttt{libomp} runtime; it vanished when OpenMP was
+disabled entirely and when the same workload ran single-threaded; and 55 runs
+across 11 thread counts produced exactly one distinct result, which a
+genuinely broken reduction would not do. No suppression was added. The
+investigation and its four independent pieces of evidence were recorded
+instead, so that a future genuine race in that file is not waved through by
+an overbroad filename-based rule.
+
+\subsection{Recurrence as a methodological finding}
+
+The most useful observation to come out of this record is not any individual
+defect but a pattern across them, and it was the second review pass that made
+it explicit: of five findings in that pass, four were the \emph{same defect
+class as an already-closed finding}, surviving in a sibling function, a
+sibling code path, or a second entry point the earlier pass did not walk. I
+hypothesized from that pass that the recurrence was structural rather than
+coincidental, and the subsequent audits bore it out. A fix for an
+unsigned-integer underflow in one quality statistic left a
+character-for-character identical expression unfixed 50 lines below, in a
+function that gates a filtering decision rather than a printed report. A
+float-square overflow fix applied to one norm computation left three
+hand-rolled sibling loops untouched. The HTTP validation gap described above
+is the same pattern applied to an entry point rather than to a function.
+
+The cause is visible once named: the audit discipline that produces good
+findings, namely reproduce before fixing, also focuses the fix on the single
+line where the reproduction landed. In other words, the very rigor that makes
+each finding trustworthy is what narrows the repair. Three process changes
+follow, and they are recorded alongside the findings themselves. After any
+fix, grep the tree for the defective \emph{construct} rather than the
+defective line. Validate on the type rather than at any one entry point, so
+that a new caller cannot bypass a check by construction. Enumerate every
+untrusted-input entry point explicitly instead of re-deriving the list from
+memory during each review. I regard those three rules as at least as
+transferable a contribution as any individual throughput number in
+Section~\ref{sec:results}.
+
+% ======================================================================
+\section{Results}
+\label{sec:results}
+% ======================================================================
+
+To evaluate these claims, we begin by defining how every figure below was
+obtained. All wall-clock and memory measurements come from a single host
+(darwin arm64, 12 logical CPUs) through a harness that runs the reference
+tool and \texttt{pto-core} in separate processes, so that
+\texttt{RUSAGE\_CHILDREN}'s monotonic high-water mark cannot leak one tool's
+peak into the other's measurement. Peak RSS is read from
+\texttt{wait4}/\texttt{ru\_maxrss} rather than from a sampler that could miss
+a spike between polls. For a multi-stage reference pipeline, wall-clock time
+is summed across stages while peak RSS is taken as the \emph{maximum} across
+stages rather than the sum. That asymmetry is deliberate, and it runs against
+this project's interest: summing RSS would inflate the baseline and flatter
+\texttt{pto-core}.
+
+\subsection{Cross-tool Pareto benchmarks}
+
+\input{table_pareto_benchmarks.tex}
+
+Table~\ref{tab:pareto-benchmarks} reports every case in which
+\texttt{pto-core} and the established tool it replaces were confirmed to
+agree on the answer, with the agreement evidence itself in
+Table~\ref{tab:concordance-exactness} below. A speedup is shown only where
+that agreement holds, which is the same discipline applied to the
+peak-concordance study in Section~\ref{sec:peak-concordance}. The two
+\texttt{gtk/sizes} rows are the cases where \texttt{pto-core} does not win on
+memory (RAM ratio $\approx 1\times$), and the reason is instructive rather
+than disappointing: both \texttt{genomic\_toolkit sizes} and
+\texttt{samtools} stream the input and neither buffers it, so there is no
+intermediate materialization for a streaming architecture to remove. The
+\texttt{fastq/qc} [small] case is listed as skipped rather than quietly
+omitted, following the harness's own convention that a report showing only
+the cases that ran is indistinguishable from a report of a run in which
+everything ran.
+
+\subsection{Correctness under speed}
+
+\input{table_concordance_exactness.tex}
+
+A speedup over a wrong answer is not a result, so
+Table~\ref{tab:concordance-exactness} reports the same run's answer-agreement
+alongside the timings above. Three of the four cases require exact,
+bit-identical counts: \texttt{fastq/qc}'s read and base totals,
+\texttt{gtk/frip}'s fragment and in-peak counts, and \texttt{gtk/sizes}'
+median length together with the Kolmogorov--Smirnov statistic against the
+reference size distribution. \texttt{cuttag/profile}'s meta-profile is
+compared by Pearson correlation under a stated tolerance instead, because
+\texttt{deeptools} and \texttt{cuttag\_profiler} normalize against different
+denominators by construction (a bigWig-derived coverage track versus fragment
+counts read directly from the BAM). This means the property under test there
+is the \emph{shape} of the profile, not numerical identity, and the tolerance
+says so rather than hiding a mismatch.
+
+\subsection{Thread scaling and the cores-busy caveat}
+
+On the \texttt{cuttag/profile} [medium] workload (80 bins), wall-clock time
+falls from \ThreadOneWall{}\,s at one thread to \ThreadFourWall{}\,s at four
+(\ThreadFourSpeedup{}) and \ThreadEightWall{}\,s at eight
+(\ThreadEightSpeedup{}, \ThreadEightEfficiency{} parallel efficiency). That
+figure needs a caveat the harness itself surfaces: the nominal one-thread run
+already averaged \ThreadOneCoresBusy{} cores busy, because \texttt{htslib}
+decompresses BGZF on its own internal threads regardless of the
+\texttt{--threads} flag passed to the profiler. In other words, the baseline
+was never serial, so the efficiency denominator is wrong in this project's
+favor, and any figure that reads as superlinear scaling is a property of that
+baseline rather than of the algorithm. I report it this way instead of
+quoting the more flattering ratio a naive one-thread-to-many-thread
+comparison would produce.
+
+\subsection{Peak-calling concordance: a split decision}
+\label{sec:peak-concordance}
+
+\input{table_peak_concordance.tex}
+
+\texttt{pto-peaks} was benchmarked against MACS3~\citep{zhang2008macs} on
+real ENCODE~\citep{encode2012} K562 ATAC-seq data (\EncodeAccession{},
+\EncodeBamAccession{}.bam, \EncodeFragments{} fragments), which is the
+reference result this project's own implementation plan called for. The
+outcome is a genuine split decision and is reported as one.
+
+On summit location and relative peak strength, the two callers are
+effectively interchangeable. Over the \NumMatchedPairsIoU{} peak pairs at
+$\geq$50\% reciprocal overlap, median summit distance is
+\MatchedSummitDist{}\,bp, \MatchedSummitWithinFifty{} of summits fall within
+50\,bp, and peak-strength Pearson correlation is \MatchedPearsonR{}. On
+interval width they are not. \texttt{pto-peaks} calls systematically narrower
+intervals, with a median of \PtoMedianWidth{}\,bp against MACS3's
+\MacsMedianWidth{}\,bp, roughly \WidthRatio{} the width, and this single
+structural difference is the direct cause of every failing summary metric.
+Mean IoU of \MeanIoU{} sits close to the theoretical ceiling for a
+\PtoMedianWidth{}\,bp call nested inside a \MacsMedianWidth{}\,bp call, and
+the harness's IoU-greedy 1:1 matcher pairs only \ReciprocalOverlapFrac{} of
+peaks at $\geq$50\% reciprocal overlap. This means that much of the apparent
+42\% ``unmatched'' rate measures the matcher's inability to bridge a width
+gap, not the two callers finding different genomic regions. Peak splitting is
+minor and one-directional: \SplitMacsPeaks{} MACS3 peaks
+(\SplitMacsPct{}) are covered by two or more \texttt{pto-peaks} calls, while
+zero \texttt{pto-peaks} calls are covered by two or more MACS3 peaks. That
+asymmetry is consistent with \texttt{pto-peaks} occasionally fragmenting one
+wide MACS3 peak and never merging two.
+
+The pre-registered parity gate for this project was \ParityGate{} on both
+summit overlap and Spearman correlation of peak strength. Both are
+\textbf{not met} (Table~\ref{tab:peak-concordance}). Following the 2026-09-10
+result, the harness's exit code was re-baselined onto two \emph{regression
+floors}, \SummitFloor{} and \SpearmanFloor{}, chosen just under the measured
+\SummitOverlapRate{} and \SpearmanLogP{}. I want to be precise about what
+that re-baselining does and does not mean. It changes the question the exit
+code answers, from ``does this meet parity'' to ``has this drifted from its
+first real-data result,'' and nothing more. The original \ParityGate{} gates
+are still computed, printed and written to the metrics artifact
+unconditionally, and they are still reported as not met; an exit code of 0
+from the regression harness is documented, both in the repository and here,
+as not a parity claim.
+
+A compatibility mode exists and does not resolve the question either.
+\texttt{--extend-peaks} pads every reported interval symmetrically without
+altering summit position or significance, and at
+\texttt{--extend-peaks}~\ExtendPeaksDemo{} the median width moves from
+\PtoMedianWidth{}\,bp to approximately \ExtendPeaksMedianWidth{}\,bp, landing
+on MACS3's own median. But the harness measures the default, unextended
+configuration, and whether the \emph{default} boundary convention should
+change is recorded as an open decision. Adding a flag is not the same as
+answering the question.
+
+\subsection{\texttt{scrna\_matrix} at scale: feasibility without a baseline}
+
+On a synthetic \ScrnaCells{} million-cell dataset (1,000 genes, 6\% density),
+naive extrapolation of the exact $O(n^2)$ brute-force path's measured scaling
+law, approximately \ScrnaExactNsPerNSq{}\,ns per $n^2$ operation and holding
+within measurement noise across a 16$\times$ range of $n$, projects
+\ScrnaExtrapolatedHours{} hours of wall-clock time. The HNSW backend on the
+same dataset is a real measured run rather than an extrapolation:
+\ScrnaHnswWall{}\,s wall-clock at \ScrnaHnswRss{}\,GB peak RSS, including
+index construction and all 1.3M queries, for a \ScrnaProjectedSpeedup{}
+reduction against the exact path's extrapolated cost.
+
+I report that as closing a \emph{feasibility} gap, in which an intractable
+exact computation becomes a tractable approximate one, and explicitly not as
+a validated performance claim against any competing tool. The comparative
+targets that motivated this module, a 20$\times$ wall-clock speedup and a 60\%
+peak-RSS reduction against \texttt{scanpy.pp.neighbors()}
+\citep{wolf2018scanpy}, have not been measured at this scale, and no number
+for either appears anywhere in this manuscript
+(Section~\ref{sec:limitations}). Recall of the HNSW approximation is likewise
+not reported above 50,000 cells, for a reason worth stating rather than
+eliding: the exact baseline needed to measure recall is precisely the
+computation that is infeasible at that size.
+
+\subsection{Live deployment validation}
+
+Beyond the single-host measurements above, the full pipeline was exercised
+end to end against a deployed cloud stack rather than only against mocked
+cloud services. That path comprises API submission, a managed queue, a
+dispatcher, one ephemeral compute task per job, and a callback consumer that
+restores job state. One real job (\texttt{genomic\_toolkit frip} on an
+8.5\,MB input) completed queue-to-terminal in \LiveJobLatency{}\,s. This is
+evidence that the architecture in Section~\ref{sec:architecture} runs as a
+deployed system; it is not a performance claim. A single job on a small input
+is not a load test, and no throughput or concurrency figure is claimed from
+it.
+
+% ======================================================================
+\section{Discussion}
+% ======================================================================
+
+The throughput results in Section~\ref{sec:results} are the least
+interesting part of this work, and I would rather say so directly than let
+them carry the argument. Most of the speedups have a structural explanation
+rather than a micro-optimization one: a streaming reduction does less work
+than a pipeline that materializes an intermediate at genome scale, and
+binary search over a merged cover does less work than a general interval
+intersection. Anyone rebuilding these tools with the same architectural
+commitments should expect to land in the same neighborhood. The numbers are a
+consequence of the design; they are not the contribution.
+
+What I think does generalize is the verification record and the shape of what
+it caught. Of the \NumAuditTotal{} confirmed defects, the ones that mattered
+most were almost never crashes. They were a truncated file reporting half a
+library at exit~0, a quality encoding misread into a plausible mean, a
+skipped region diluting a meta-profile by a constant the user could not see,
+and a saturating accumulator turning two identical cells into each other's
+worst match. Each of those produces output that passes every downstream
+sanity check a biologist would think to apply, because it is well-formed,
+finite and in range. This is what makes the fail-open failure mode
+categorically worse than a segfault: a crash costs an afternoon, while a
+plausible wrong number can cost a paper. Fail-closed parsing is therefore not
+defensive programming in the ordinary sense. It is the recognition that in
+this domain, refusing to answer is a better outcome than answering
+incorrectly.
+
+The recurrence pattern in \S\ref{sec:verification} sharpens the point. Four
+separate instances of an already-closed defect class surviving in a sibling
+path is not a story about carelessness; it is a story about how a
+reproduce-then-fix discipline naturally narrows a repair to the line where
+the reproduction landed. The corrective is to move the guard onto the type,
+so that the invariant holds for callers who have not been written yet. Rather
+than merely fixing the defect that was found, the goal is to make the class
+of defect unrepresentable at the boundary where untrusted data enters. That
+is an old idea in systems and formal-methods practice. It is not yet a
+default expectation in bioinformatics tooling, and I would like it to become
+one.
+
+This also frames what \texttt{pto-core} is not. It is not a claim that
+existing tools are badly built by people who should have known better; most
+of them were written under constraints that made different trade-offs
+reasonable, and several are cited throughout this manuscript precisely
+because they are the correct reference for their task. The claim is narrower
+and, I think, harder to argue with: the economics have changed. A sequencing
+core now generates data faster than the analysis layer's memory ceiling
+scales, HPC allocations are spent re-reading files that never needed to be
+written, and the cost of a silent wrong answer rises with every downstream
+analysis built on it. Treating these engines as safety-critical systems
+software, with bounded memory, runtime-dispatched vector kernels, fail-closed
+invariants and a continuous adversarial audit, is not gold-plating under
+those conditions. It is the minimum standard the data volume now demands.
+
+% ======================================================================
+\section{Limitations and Honest Residuals}
+\label{sec:limitations}
+% ======================================================================
+
+I want to be transparent about the limits of this system, because each of the
+following bears directly on what a reader should and should not conclude from
+the numbers above.
+
+\begin{itemize}\itemsep3pt
+
+\item \textbf{Peak-calling interval-width parity is an open problem, not a
+  solved one.} Section~\ref{sec:peak-concordance}'s \ParityGate{} gates are
+  not met, and the regression floors that replaced them as the harness's exit
+  criterion are explicitly a drift tripwire set after the fact rather than a
+  validation bar. Three remedies are documented as options rather than
+  decided: widen the default boundary convention toward MACS3's; change what
+  the harness measures, weighting summit and strength agreement over
+  full-interval IoU; or accept and document the divergence as a deliberate
+  tighter-boundary design. None has been chosen.
+
+\item \textbf{\texttt{scrna\_matrix}'s comparative performance claims against
+  \texttt{scanpy.pp.neighbors()} are unmeasured at the scale that matters.}
+  The 1.3M-cell HNSW run (Section~\ref{sec:scrna}) demonstrates feasibility,
+  not superiority against a baseline. No like-for-like run against
+  \texttt{scanpy} at that scale exists, and \texttt{sc.pp.neighbors} on a PCA
+  representation is itself approximate and near-linear, which makes it a peer
+  of the HNSW backend rather than a baseline it should categorically be
+  expected to beat.
+
+\item \textbf{\texttt{deeptools} parity for \texttt{cuttag\_profiler} was not
+  re-measured after the skipped-region fix} (\S\ref{sec:cuttag}), because
+  \texttt{deeptools} was not installed on the audit machine at the time of
+  that fix. The fix changes the reported mean only when a region is skipped,
+  and the benchmarked case in Table~\ref{tab:pareto-benchmarks} had none, so
+  ``unchanged'' for that table is inferred from the logic of the fix rather
+  than independently observed.
+
+\item \textbf{AVX-512 is compiled but has never executed on hardware that
+  natively supports it}, across every module that offers it
+  (\texttt{fastq\_stream}, \texttt{peaks}, \texttt{scrna\_matrix}). The AVX2
+  kernels were executed on x86-64 only under Rosetta 2 emulation, which runs
+  AVX2 instructions but does not report their availability in CPUID; runtime
+  auto-selection of the AVX2 path was therefore forced rather than observed.
+  No throughput claim is made for either ISA beyond compiling and being
+  numerically correct against a scalar reference.
+
+\item \textbf{\texttt{std::bad\_alloc} resilience is untested.} macOS does not
+  enforce \texttt{RLIMIT\_AS}, so no allocation failure could be induced on
+  the development host for any module. A Linux runner with a hard
+  address-space limit, or an allocator shim, is the stated path to closing
+  this.
+
+\item \textbf{The Python-binding sanitizer coverage is split across two hosts,
+  for a specific and checkable reason.} macOS System Integrity Protection
+  strips \texttt{DYLD\_*} variables from a protected process before it starts,
+  and those variables are exactly what preload-based sanitizer instrumentation
+  of a dynamically loaded Python extension requires; this was verified from
+  inside the running interpreter rather than assumed.
+  \texttt{scrna\_matrix}'s full C++ engine was verified locally under CI's
+  exact sanitizer flags, but its Python binding layer's sanitizer coverage
+  comes from Linux CI and not from this host.
+
+\item \textbf{Two parser-level residuals remain open.} Plain gzip and raw
+  FASTQ carry no end-of-stream marker analogous to BGZF's, so a file
+  truncated exactly between records or between gzip members is, to any
+  parser, a valid shorter input rather than a detectable truncation. Only an
+  external checksum or manifest would catch it. Separately, no
+  structure-aware fuzzer yet exists over \texttt{scrna\_matrix}'s
+  \texttt{from\_scipy\_csr} boundary, which is the entry point at which one of
+  the eleven confirmed findings in that module's audit (an unchecked
+  narrowing conversion) was found by manual probing rather than by fuzzing.
+
+\item \textbf{CRAM truncation is unexercised.} \texttt{genomic\_toolkit}'s
+  BGZF end-of-file check does not extend to CRAM, which carries its own
+  end-of-file container, and no CRAM fixture with a local reference was
+  available to test against.
+
+\end{itemize}
+
+% ======================================================================
+\section{Availability}
+% ======================================================================
+
+Source, build instructions, the full verification and benchmark record cited
+throughout this manuscript, and the license are available at
+\url{https://github.com/chrisaperez/pto-core} under the MIT license. All five
+modules build independently with CMake $\geq$3.20 and a C++20 compiler.
+\texttt{scrna\_matrix} additionally requires OpenMP, enforced as a hard
+configure-time failure rather than a silent fallback to single-threaded
+execution. That hard failure exists because of an earlier incident: a soft
+OpenMP dependency once left \texttt{\_OPENMP} undefined, every
+\texttt{\#pragma omp} compiled to serial code, and the test suite reported
+100\% passed while never executing a single parallel iteration. A silently
+single-threaded engine that CI signs off on is worse than a build that stops.
+Every number in this manuscript resolves through \texttt{numbers.tex}, which
+is checked in beside \texttt{main.tex}, so that regenerating the underlying
+reports regenerates the manuscript.
+
+% ======================================================================
+\section{Conclusion}
+% ======================================================================
+
+I have presented five independent, hardware-aware C++20 engines for
+high-throughput omics, unified by a deployment constraint and a verification
+discipline rather than by shared code. Measured against the tools they
+replace, they are consistently faster and lower in peak memory across
+\NumBenchCases{} workloads without sacrificing answer correctness. But the
+result I consider most transferable came from building them adversarially
+rather than from the throughput figures: the same fail-open,
+unbounded-memory and unvalidated-second-entry-point defect classes this
+project explicitly set out to refuse were nonetheless found \NumAuditTotal{}
+times before a sustained sanitizer-driven practice closed them. Writing
+correct performance-path C++ for this domain is not a matter of intent. It is
+a matter of continuous, reproducible, adversarial verification.
+
+Two results here do not resolve as cleanly as a headline speedup:
+peak-calling boundary-width parity, and single-cell $k$-NN performance at
+scale relative to an established baseline. I have reported both as open
+questions rather than rounding them into successes. The same
+numerical-integrity standard that makes the benchmark numbers in
+Section~\ref{sec:results} worth trusting is the standard that requires it.
+
+% ======================================================================
+\begin{thebibliography}{9}
+\small
+
+\bibitem[Bolger \textit{et~al.}(2014)]{bolger2014trimmomatic}
+Bolger,~A.M., Lohse,~M. and Usadel,~B. (2014)
+Trimmomatic: a flexible trimmer for Illumina sequence data.
+\textit{Bioinformatics}, \textbf{30}, 2114--2120.
+
+\bibitem[Chen \textit{et~al.}(2018)]{chen2018fastp}
+Chen,~S., Zhou,~Y., Chen,~Y. and Gu,~J. (2018)
+fastp: an ultra-fast all-in-one FASTQ preprocessor.
+\textit{Bioinformatics}, \textbf{34}, i884--i890.
+
+\bibitem[Danecek \textit{et~al.}(2021)]{danecek2021htslib}
+Danecek,~P. \textit{et~al.} (2021)
+Twelve years of SAMtools and BCFtools.
+\textit{GigaScience}, \textbf{10}, giab008.
+
+\bibitem[Biggers(2016)]{biggers2016libdeflate}
+Biggers,~E. (2016) libdeflate: heavily optimized library for DEFLATE/zlib/gzip
+compression and decompression. \url{https://github.com/ebiggers/libdeflate}.
+
+\bibitem[ENCODE Project Consortium(2012)]{encode2012}
+The ENCODE Project Consortium (2012)
+An integrated encyclopedia of DNA elements in the human genome.
+\textit{Nature}, \textbf{489}, 57--74.
+
+\bibitem[Kaya-Okur \textit{et~al.}(2019)]{kayaokur2019cuttag}
+Kaya-Okur,~H.S. \textit{et~al.} (2019)
+CUT\&Tag for efficient epigenomic profiling of small samples and single cells.
+\textit{Nat.\ Commun.}, \textbf{10}, 1930.
+
+\bibitem[Malkov and Yashunin(2018)]{malkov2018hnsw}
+Malkov,~Y.A. and Yashunin,~D.A. (2018)
+Efficient and robust approximate nearest neighbor search using hierarchical
+navigable small world graphs.
+\textit{IEEE Trans.\ Pattern Anal.\ Mach.\ Intell.}, \textbf{42}, 824--836.
+
+\bibitem[Quinlan and Hall(2010)]{quinlan2010bedtools}
+Quinlan,~A.R. and Hall,~I.M. (2010)
+BEDTools: a flexible suite of utilities for comparing genomic features.
+\textit{Bioinformatics}, \textbf{26}, 841--842.
+
+\bibitem[Ram\'irez \textit{et~al.}(2016)]{ramirez2016deeptools}
+Ram\'irez,~F. \textit{et~al.} (2016)
+deepTools2: a next generation web server for deep-sequencing data analysis.
+\textit{Nucleic Acids Res.}, \textbf{44}, W160--W165.
+
+\bibitem[Serebryany and Iskhodzhanov(2009)]{serebryany2009tsan}
+Serebryany,~K. and Iskhodzhanov,~T. (2009)
+ThreadSanitizer: data race detection in practice.
+In \textit{Proc.\ WBIA}, pp.\ 62--71.
+
+\bibitem[Serebryany \textit{et~al.}(2012)]{serebryany2012asan}
+Serebryany,~K., Bruening,~D., Potapenko,~A. and Vyukov,~V. (2012)
+AddressSanitizer: a fast address sanity checker.
+In \textit{Proc.\ USENIX ATC}, pp.\ 309--318.
+
+\bibitem[Wolf \textit{et~al.}(2018)]{wolf2018scanpy}
+Wolf,~F.A., Angerer,~P. and Theis,~F.J. (2018)
+SCANPY: large-scale single-cell gene expression data analysis.
+\textit{Genome Biol.}, \textbf{19}, 15.
+
+\bibitem[Zhang \textit{et~al.}(2008)]{zhang2008macs}
+Zhang,~Y. \textit{et~al.} (2008)
+Model-based analysis of ChIP-Seq (MACS).
+\textit{Genome Biol.}, \textbf{9}, R137.
+
+\end{thebibliography}
+
+\end{document}

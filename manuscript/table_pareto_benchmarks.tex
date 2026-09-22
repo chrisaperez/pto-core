@@ -1,0 +1,42 @@
+% table_pareto_benchmarks.tex
+% Source: reports/TECHNICAL_BRIEF.md, reports/figures/investor_figures.md
+% Host: darwin arm64, 12 logical CPUs. Measured 2026-08-28T03:16-03:18Z.
+% Wall clock is summed across stages for a multi-stage reference pipeline;
+% peak RSS is the MAX across stages, never the sum (TECHNICAL_BRIEF.md,
+% "How these numbers were measured") -- the one direction of error the
+% harness is built to prevent from flattering pto-core.
+\begin{table*}[t]
+\centering
+\caption{Wall-clock and peak-RSS comparison against the established tool each
+workload replaces, over the full case $\times$ tier matrix that produced an
+agreed answer (\NumBenchCases{} of \NumBenchCases{} cases; concordance is
+Table~\ref{tab:concordance-exactness}). MB is $10^6$ bytes throughout.}
+\label{tab:pareto-benchmarks}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrrlrrrr}
+\toprule
+Workload & Tier & pto-core (s) & Reference (s) & Reference tool & pto RSS (MB) & Ref.\ RSS (MB) & Speedup & RAM ratio \\
+\midrule
+\texttt{cuttag/profile} & medium & \CuttagWallMedium{} & \DeeptoolsWallMedium{} & deeptools & \CuttagRssMedium{} & \DeeptoolsRssMedium{} & \NumCuttagSpeedupMedium{} & \NumCuttagRamMedium{} \\
+\texttt{cuttag/profile} & small  & \CuttagWallSmall{} & \DeeptoolsWallSmall{} & deeptools & \CuttagRssSmall{} & \DeeptoolsRssSmall{} & \NumCuttagSpeedupSmall{} & \NumCuttagRamSmall{} \\
+\texttt{fastq/qc}       & medium & \FastqQcWallMedium{} & \FastpWallMedium{} & fastp & \FastqQcRssMedium{} & \FastpRssMedium{} & \NumFastqSpeedup{} & \NumFastqRam{} \\
+\texttt{gtk/frip}       & medium & \GtkFripWallMedium{} & \RefFripWallMedium{} & samtools+bedtools & \GtkFripRssMedium{} & \RefFripRssMedium{} & \NumFripSpeedupMedium{} & \NumFripRamMedium{} \\
+\texttt{gtk/frip}       & small  & \GtkFripWallSmall{} & \RefFripWallSmall{} & samtools+bedtools & \GtkFripRssSmall{} & \RefFripRssSmall{} & \NumFripSpeedupSmall{} & \NumFripRamSmall{} \\
+\texttt{gtk/sizes}      & medium & \GtkSizesWallMedium{} & \RefSizesWallMedium{} & samtools & \GtkSizesRssMedium{} & \RefSizesRssMedium{} & \NumSizesSpeedupMedium{} & 0.99$\times$ \\
+\texttt{gtk/sizes}      & small  & \GtkSizesWallSmall{} & \RefSizesWallSmall{} & samtools & 6.8 & 6.7 & \NumSizesSpeedupSmall{} & 0.99$\times$ \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+\raggedright\footnotesize
+\texttt{fastq/qc} [small] is omitted: the tier stages no \texttt{reads\_r1}
+input and the case reports \texttt{skip}, not a measurement -- listed as an
+omission in the underlying report rather than left out of this table
+silently. Across the \NumBenchCases{} cases shown, peak RSS ranges from
+\RssRangeLow{} to \RssRangeHigh{} of the reference tool's (the
+\texttt{gtk/sizes} rows, where both tools stream and neither buffers,
+are the two cases pto-core does not win on memory), and the reference
+pipelines wrote \IntermediateBytesAvoided{}~MB of intermediate files across
+these cases that pto-core never materialises at all.
+\end{table*}

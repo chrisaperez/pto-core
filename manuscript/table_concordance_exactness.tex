@@ -1,0 +1,28 @@
+% table_concordance_exactness.tex
+% Source: reports/TECHNICAL_BRIEF.md, "Concordance" section. The evidence that
+% the speedups in Table~\ref{tab:pareto-benchmarks} are not bought with a
+% different answer -- exact means bit-identical counts; a tolerance is shown
+% only where the two tools compute genuinely different quantities by
+% construction (e.g. deeptools' bigWig-derived normalisation vs pto-core's
+% direct BAM-derived one).
+\begin{table}[t]
+\centering
+\caption{Correctness under the speedups of Table~\ref{tab:pareto-benchmarks}.
+All deltas are on the medium tier unless noted.}
+\label{tab:concordance-exactness}
+\footnotesize
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+Case & pto-core & Reference & Agrees \\
+\midrule
+\texttt{cuttag/profile}: Pearson $r$ & \ProfilePearsonMedium{} & 1.0 & tol.\ 0.01 \\
+\texttt{fastq/qc}: reads & \FastqReadsExact{} & \FastqReadsExact{} & \textbf{exact} \\
+\texttt{fastq/qc}: bases & \FastqBasesExact{} & \FastqBasesExact{} & \textbf{exact} \\
+\texttt{gtk/frip}: fragments & \FripFragmentsMedium{} & \FripFragmentsMedium{} & \textbf{exact} \\
+\texttt{gtk/frip}: in peaks & \FripInPeaksMedium{} & \FripInPeaksMedium{} & \textbf{exact} \\
+\texttt{gtk/frip}: FRiP & \FripValueMedium{} & 0.4072794 & tol.\ $10^{-6}$ \\
+\texttt{gtk/sizes}: median len.\ (bp) & \SizesMedianLenMedium{} & \SizesMedianLenMedium{} & \textbf{exact} \\
+\texttt{gtk/sizes}: KS statistic & \SizesKsStat{} & \SizesKsStat{} & \textbf{exact} \\
+\bottomrule
+\end{tabular}
+\end{table}

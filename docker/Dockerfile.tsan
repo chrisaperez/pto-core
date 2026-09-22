@@ -1,0 +1,99 @@
+# syntax=docker/dockerfile:1
+#
+# ThreadSanitizer verification image for pto-core.
+#
+# WHY THIS EXISTS
+# ---------------
+# The concurrency code in this repo cannot be TSan-verified on the macOS
+# development host, and the reason is a toolchain dead end rather than an
+# oversight:
+#
+#   * Apple Clang ships no OpenMP runtime at all, so `-fopenmp` is unavailable
+#     and every `#pragma omp` compiles to serial code.
+#   * Homebrew GCC provides OpenMP (libgomp) but ships no sanitizer runtimes on
+#     macOS/arm64 -- `-fsanitize=thread` fails at link with "library 'tsan' not
+#     found".
+#
+# So on that host you can have real OpenMP or you can have TSan, never both.
+# This image gives you both: LLVM Clang with libomp-dev, where
+# `-fopenmp -fsanitize=thread` is a supported combination.
+#
+# IMPORTANT: OpenMP + TSan requires an OpenMP runtime built with TSan
+# instrumentation, or TSan cannot see libomp's internal synchronisation and
+# reports false races in every parallel region. LLVM's libomp is annotated for
+# this, but only when the runtime is told to cooperate -- see
+# OMP_TOOL_LIBRARIES/TSAN_OPTIONS and the archer notes in scripts/run_tsan.sh.
+# We install libarcher (LLVM's OpenMP-TSan integration) explicitly.
+#
+# Usage:
+#   docker build -f docker/Dockerfile.tsan -t pto-tsan .
+#   docker run --rm pto-tsan
+#   docker run --rm -v "$PWD:/src:ro" pto-tsan   # verify a working tree
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ARG LLVM_VERSION=18
+
+# Pinned, single layer, no recommends. libomp-<v>-dev brings libarcher with it,
+# which is the piece that makes OpenMP and TSan agree about happens-before.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        clang-${LLVM_VERSION} \
+        llvm-${LLVM_VERSION} \
+        libomp-${LLVM_VERSION}-dev \
+        libclang-rt-${LLVM_VERSION}-dev \
+        cmake \
+        ninja-build \
+        git \
+        ca-certificates \
+        pkg-config \
+        zlib1g-dev \
+        libdeflate-dev \
+        libhts-dev \
+        libhtscodecs-dev \
+        libbz2-dev \
+        python3 \
+        python3-dev \
+        python3-numpy \
+        python3-scipy \
+        python3-pytest \
+        pybind11-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Make the versioned toolchain the default one.
+RUN update-alternatives --install /usr/bin/clang   clang   /usr/bin/clang-${LLVM_VERSION}   100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${LLVM_VERSION} 100
+
+ENV CC=clang CXX=clang++
+
+# Locate libarcher so run_tsan.sh can hand it to the OpenMP runtime as an OMPT
+# tool. Without it, TSan does not understand libomp's barriers and taskwait
+# edges and floods the log with false positives inside the runtime.
+RUN ARCHER=$(find /usr/lib -name 'libarcher.so*' | head -n1) && \
+    if [ -z "$ARCHER" ]; then \
+        echo "libarcher not found; OpenMP+TSan would report false races" >&2; exit 1; \
+    fi && \
+    printf '%s\n' "$ARCHER" > /etc/pto-archer-path && \
+    echo "libarcher: $ARCHER"
+
+# Record the TSan runtime path. A TSan-instrumented extension module dlopened
+# into an uninstrumented CPython aborts with "interceptors are not working ...
+# loaded too late"; the runtime has to be present from process start, so
+# run_tsan.sh LD_PRELOADs this for the Python binding suite.
+RUN TSAN_RT=$(clang -print-file-name=libclang_rt.tsan.so) && \
+    if [ ! -r "$TSAN_RT" ]; then \
+        TSAN_RT=$(find /usr/lib -name 'libtsan.so*' | head -n1); \
+    fi && \
+    if [ -z "$TSAN_RT" ] || [ ! -r "$TSAN_RT" ]; then \
+        echo "TSan runtime not found; the Python suite could not run under TSan" >&2; exit 1; \
+    fi && \
+    printf '%s\n' "$TSAN_RT" > /etc/pto-tsan-runtime && \
+    echo "tsan runtime: $TSAN_RT"
+
+WORKDIR /src
+COPY . /src
+
+# Suppressions for third-party code we do not own and do not build with TSan.
+COPY docker/tsan.supp /etc/pto-tsan.supp
+
+ENTRYPOINT ["/src/scripts/run_tsan.sh"]

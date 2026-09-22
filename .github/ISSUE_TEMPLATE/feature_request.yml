@@ -1,0 +1,67 @@
+name: Feature request
+description: Propose a new capability, engine option, or CLI/Python API change.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The modules here share no runtime and no code by design (see the
+        README's "Repository layout" and "Architecture & System Design"
+        sections) — a request that implies a new shared dependency or a
+        cross-module abstraction is a bigger design conversation than a
+        single flag, so say which module(s) this touches.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What can't you do today, and what are you working around instead?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Which module(s) does this affect?
+      multiple: true
+      options:
+        - scrna_matrix
+        - fastq_stream
+        - cuttag_profiler
+        - genomic_toolkit
+        - peaks
+        - packaging / Python CLI (pto-core)
+        - Not sure / repo-wide
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed C++ or Python API change
+      description: >-
+        A concrete shape is far more actionable than a description of the
+        feature in prose — a new CLI flag and its default, a new `pto.*`
+        Python function signature, or a new C++ header entry point.
+      placeholder: |
+        pto-core frip atac.bam peaks.bed --new-flag VALUE
+
+        # or
+
+        pto.new_function(alignment, ..., new_option=None)
+      render: text
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: >-
+        Other tools, existing flags, or workarounds you've already tried,
+        and why they fall short of what this request asks for.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else — links, related issues, or example output from another tool.

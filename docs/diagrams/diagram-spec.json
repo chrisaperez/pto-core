@@ -1,0 +1,3769 @@
+{
+ "canvas": {
+  "width": 1920,
+  "height": 1080,
+  "grid": 8,
+  "margin": 64
+ },
+ "fonts": {
+  "sans": "Inter, Helvetica, Arial, sans-serif",
+  "mono": "JetBrains Mono, Menlo, Consolas, monospace"
+ },
+ "node_kinds": {
+  "cpp": {
+   "fill": "#E3F0FD",
+   "stroke": "#1565C0",
+   "text": "#0D3B72",
+   "dashed": false,
+   "shape": "rounded",
+   "meaning": "C++20 engine or core component"
+  },
+  "py": {
+   "fill": "#E6F4EA",
+   "stroke": "#2E7D32",
+   "text": "#1B4D20",
+   "dashed": false,
+   "shape": "rounded",
+   "meaning": "Python orchestration (stdlib only)"
+  },
+  "build": {
+   "fill": "#EFE6FA",
+   "stroke": "#6A3FA0",
+   "text": "#3F2266",
+   "dashed": false,
+   "shape": "rounded",
+   "meaning": "build, packaging, CI, deploy"
+  },
+  "data": {
+   "fill": "#FFF4DB",
+   "stroke": "#B7791F",
+   "text": "#6B4A0E",
+   "dashed": false,
+   "shape": "document",
+   "meaning": "artifact, format, stream"
+  },
+  "sync": {
+   "fill": "#DDF5F1",
+   "stroke": "#00796B",
+   "text": "#004D40",
+   "dashed": false,
+   "shape": "process",
+   "meaning": "concurrency primitive: ring, pool, lock"
+  },
+  "gate": {
+   "fill": "#FDE8E8",
+   "stroke": "#C62828",
+   "text": "#7F1D1D",
+   "dashed": false,
+   "shape": "rounded",
+   "meaning": "security gate"
+  },
+  "ext": {
+   "fill": "#F4F4F4",
+   "stroke": "#757575",
+   "text": "#424242",
+   "dashed": true,
+   "shape": "rounded",
+   "meaning": "outside this repository (contract only)"
+  },
+  "panel": {
+   "fill": "#FFFFFF",
+   "stroke": "#B0BEC5",
+   "text": "#37474F",
+   "dashed": false,
+   "shape": "container",
+   "meaning": "neutral grouping container"
+  },
+  "zone_cpp": {
+   "fill": "#F5F9FF",
+   "stroke": "#1565C0",
+   "text": "#0D3B72",
+   "dashed": false,
+   "shape": "container",
+   "meaning": "container: C++ engines"
+  },
+  "zone_py": {
+   "fill": "#F4FAF5",
+   "stroke": "#2E7D32",
+   "text": "#1B4D20",
+   "dashed": false,
+   "shape": "container",
+   "meaning": "container: Python layer"
+  },
+  "zone_gate": {
+   "fill": "#FFF6F6",
+   "stroke": "#C62828",
+   "text": "#7F1D1D",
+   "dashed": true,
+   "shape": "container",
+   "meaning": "container: trust boundary"
+  },
+  "boundary": {
+   "fill": "#EFE6FA",
+   "stroke": "#6A3FA0",
+   "text": "#3F2266",
+   "dashed": false,
+   "shape": "band",
+   "meaning": "the process boundary"
+  },
+  "callout": {
+   "fill": "#FFFBEA",
+   "stroke": "#E0B84C",
+   "text": "#5B4300",
+   "dashed": false,
+   "shape": "rounded",
+   "meaning": "callout: a finding worth reading"
+  },
+  "note": {
+   "fill": "#FFFFFF",
+   "stroke": "#FFFFFF",
+   "text": "#37474F",
+   "dashed": false,
+   "shape": "text",
+   "meaning": "annotation, no box"
+  }
+ },
+ "edge_kinds": {
+  "payload": {
+   "color": "#37474F",
+   "width": 2.5,
+   "dash": null,
+   "meaning": "bytes, buffer handles, artifacts"
+  },
+  "control": {
+   "color": "#1565C0",
+   "width": 1.6,
+   "dash": "6,4",
+   "meaning": "call, argv, configuration"
+  },
+  "error": {
+   "color": "#C62828",
+   "width": 1.6,
+   "dash": "2,4",
+   "meaning": "abort, refusal, failure exit"
+  },
+  "contract": {
+   "color": "#6A3FA0",
+   "width": 3.0,
+   "dash": null,
+   "meaning": "crosses the process boundary"
+  }
+ },
+ "pages": [
+  {
+   "id": "p1",
+   "name": "1 Overview",
+   "title": "Five independent C++20 engines behind one process boundary",
+   "subtitle": "No shared runtime and no shared code: callers reach an engine only through argv, files, stdio and an exit code.",
+   "footer": "Sources: packaging/pto/*, pyproject.toml, CMakeLists.txt, modules/*/src/main.cpp (commit 0ba20d1)",
+   "talk": [
+    "Five engines: four command-line tools and one Python extension. Each is its own CMake project and builds and tests with the other four deleted.",
+    "The only coupling is the process boundary: argv, files, stdio and an exit code. There is no shared runtime, and the output-aliasing guard is deliberately copied four times.",
+    "What's left dashed here is generic -- a shell and a browser -- not any named external product; this slide stays inside what pto-core itself ships."
+   ],
+   "nodes": [
+    {
+     "id": "z_call",
+     "kind": "panel",
+     "x": 64,
+     "y": 124,
+     "w": 1792,
+     "h": 140,
+     "label": "CALLERS",
+     "size": 13
+    },
+    {
+     "id": "c_cli",
+     "kind": "py",
+     "x": 88,
+     "y": 164,
+     "w": 272,
+     "h": 88,
+     "label": "pto-core CLI",
+     "body": [
+      "console script pto.cli:main"
+     ],
+     "parent": "z_call",
+     "size": 13
+    },
+    {
+     "id": "c_api",
+     "kind": "py",
+     "x": 384,
+     "y": 164,
+     "w": 272,
+     "h": 88,
+     "label": "import pto",
+     "body": [
+      "Python API, 7 functions"
+     ],
+     "parent": "z_call",
+     "size": 13
+    },
+    {
+     "id": "c_path",
+     "kind": "ext",
+     "x": 1000,
+     "y": 164,
+     "w": 196,
+     "h": 88,
+     "label": "shell / SLURM",
+     "body": [
+      "bare tool names on PATH"
+     ],
+     "parent": "z_call",
+     "size": 13
+    },
+    {
+     "id": "c_brw",
+     "kind": "ext",
+     "x": 1318,
+     "y": 164,
+     "w": 196,
+     "h": 88,
+     "label": "browser",
+     "body": [
+      "dashboard, loopback only"
+     ],
+     "parent": "z_call",
+     "size": 13
+    },
+    {
+     "id": "c_scp",
+     "kind": "ext",
+     "x": 1636,
+     "y": 164,
+     "w": 196,
+     "h": 88,
+     "label": "scanpy / AnnData",
+     "body": [
+      "import scrna_matrix"
+     ],
+     "parent": "z_call",
+     "size": 13
+    },
+    {
+     "id": "z_py",
+     "kind": "zone_py",
+     "x": 64,
+     "y": 292,
+     "w": 912,
+     "h": 270,
+     "label": "PYTHON ORCHESTRATION   packaging/pto   stdlib only, zero runtime dependencies",
+     "size": 13
+    },
+    {
+     "id": "py_cli",
+     "kind": "py",
+     "x": 88,
+     "y": 344,
+     "w": 272,
+     "h": 96,
+     "label": "cli.py",
+     "body": [
+      "argparse, 12 subcommands",
+      "exec uses os.execv"
+     ],
+     "parent": "z_py",
+     "size": 13
+    },
+    {
+     "id": "py_api",
+     "kind": "py",
+     "x": 384,
+     "y": 344,
+     "w": 272,
+     "h": 96,
+     "label": "api.py",
+     "body": [
+      "7 functions",
+      "None kwargs are omitted"
+     ],
+     "parent": "z_py",
+     "size": 13
+    },
+    {
+     "id": "py_cpu",
+     "kind": "py",
+     "x": 680,
+     "y": 344,
+     "w": 272,
+     "h": 96,
+     "label": "_cpu.py",
+     "body": [
+      "min(affinity, cgroup quota,",
+      "cpu_count), never below 1"
+     ],
+     "parent": "z_py",
+     "size": 13
+    },
+    {
+     "id": "py_bin",
+     "kind": "py",
+     "x": 88,
+     "y": 452,
+     "w": 272,
+     "h": 96,
+     "label": "_binaries.py",
+     "body": [
+      "$PTO_BIN_DIR > pto/_vendor/bin",
+      "> $PATH"
+     ],
+     "parent": "z_py",
+     "size": 13
+    },
+    {
+     "id": "py_run",
+     "kind": "py",
+     "x": 384,
+     "y": 452,
+     "w": 272,
+     "h": 96,
+     "label": "_run.py",
+     "body": [
+      "Popen, shell=False",
+      "os.wait4: wall time + peak RSS"
+     ],
+     "parent": "z_py",
+     "size": 13
+    },
+    {
+     "id": "py_err",
+     "kind": "py",
+     "x": 680,
+     "y": 452,
+     "w": 272,
+     "h": 96,
+     "label": "errors.py",
+     "body": [
+      "rc 2 = InvalidInput",
+      "other rc = ToolError"
+     ],
+     "parent": "z_py",
+     "size": 13
+    },
+    {
+     "id": "band",
+     "kind": "boundary",
+     "x": 64,
+     "y": 590,
+     "w": 1792,
+     "h": 48,
+     "label": "PROCESS BOUNDARY   argv + files + stdio + exit code   no shared memory   no IPC",
+     "size": 13
+    },
+    {
+     "id": "z_eng",
+     "kind": "zone_cpp",
+     "x": 64,
+     "y": 666,
+     "w": 1792,
+     "h": 250,
+     "label": "C++20 ENGINES",
+     "size": 13
+    },
+    {
+     "id": "e_fq",
+     "kind": "cpp",
+     "x": 88,
+     "y": 712,
+     "w": 328,
+     "h": 190,
+     "label": "fastq_stream 0.1.0",
+     "body": [
+      "CLI: streaming QC and trimming",
+      "in: FASTQ raw/gz/BGZF; BAM/CRAM/SAM",
+      "out: QC JSON + text; FASTQ to file/FIFO/stdout",
+      "threads 3+D+W; SIMD runtime",
+      "exit 0 | 1 | 2 (usage errors too)"
+     ],
+     "parent": "z_eng",
+     "size": 13
+    },
+    {
+     "id": "e_gtk",
+     "kind": "cpp",
+     "x": 440,
+     "y": 712,
+     "w": 328,
+     "h": 190,
+     "label": "genomic_toolkit 0.1.0",
+     "body": [
+      "CLI: sizes | markdup | frip",
+      "in: BAM/CRAM, BEDPE, fragment BED",
+      "out: JSON on stdout (+ histogram TSV)",
+      "threads 1 + OpenMP (FRiP); no hand SIMD",
+      "exit 0 | 1 | 2"
+     ],
+     "parent": "z_eng",
+     "size": 13
+    },
+    {
+     "id": "e_pk",
+     "kind": "cpp",
+     "x": 792,
+     "y": 712,
+     "w": 328,
+     "h": 190,
+     "label": "pto-peaks 0.1.0",
+     "body": [
+      "CLI: streaming peak caller",
+      "in: fragment BED or sorted BAM (stdin ok)",
+      "out: narrowPeak; BAM decoded natively",
+      "threads 1; SIMD runtime (Poisson)",
+      "exit 0 | 1 | 2"
+     ],
+     "parent": "z_eng",
+     "size": 13
+    },
+    {
+     "id": "e_cp",
+     "kind": "cpp",
+     "x": 1144,
+     "y": 712,
+     "w": 328,
+     "h": 190,
+     "label": "cuttag_profiler 1.0.0",
+     "body": [
+      "CLI: profile | serve",
+      "in: indexed BAM + BED/GTF",
+      "out: matrix.tsv + profile.tsv, or HTTP",
+      "threads N workers; no hand SIMD",
+      "exit 0 | 1 | 2"
+     ],
+     "parent": "z_eng",
+     "size": 13
+    },
+    {
+     "id": "e_sc",
+     "kind": "cpp",
+     "x": 1496,
+     "y": 712,
+     "w": 328,
+     "h": 190,
+     "label": "scrna_matrix",
+     "body": [
+      "header-only C++20 + pybind11 module",
+      "in: NumPy/SciPy CSR buffers",
+      "out: KnnGraph as NumPy views",
+      "threads OpenMP; SIMD runtime",
+      "no CLI, no exit code; own wheel"
+     ],
+     "parent": "z_eng",
+     "size": 13
+    },
+    {
+     "id": "l_fq",
+     "kind": "ext",
+     "x": 88,
+     "y": 928,
+     "w": 328,
+     "h": 56,
+     "body": [
+      "zlib + libdeflate",
+      "htslib optional (ON in the wheel)"
+     ],
+     "size": 13
+    },
+    {
+     "id": "l_gtk",
+     "kind": "ext",
+     "x": 440,
+     "y": 928,
+     "w": 328,
+     "h": 56,
+     "body": [
+      "htslib (AUTO-detected)",
+      "OpenMP optional"
+     ],
+     "size": 13
+    },
+    {
+     "id": "l_pk",
+     "kind": "ext",
+     "x": 792,
+     "y": 928,
+     "w": 328,
+     "h": 56,
+     "body": [
+      "libdeflate or zlib (BAM/BGZF)",
+      "no htslib"
+     ],
+     "size": 13
+    },
+    {
+     "id": "l_cp",
+     "kind": "ext",
+     "x": 1144,
+     "y": 928,
+     "w": 328,
+     "h": 56,
+     "body": [
+      "htslib (required)",
+      "httplib + json (server only)"
+     ],
+     "size": 13
+    },
+    {
+     "id": "l_sc",
+     "kind": "ext",
+     "x": 1496,
+     "y": 928,
+     "w": 328,
+     "h": 56,
+     "body": [
+      "OpenMP (required, hard fail)",
+      "hnswlib (vendored, patched)"
+     ],
+     "size": 13
+    },
+    {
+     "id": "build",
+     "kind": "build",
+     "x": 64,
+     "y": 996,
+     "w": 1792,
+     "h": 44,
+     "body": [
+      "cmake -S . : PTO_BUILD_* x5 (PTO_CLOUD_BUILD off)  ->  wheel pto-core py3-none-<platform>, 4 CLIs in pto/_vendor/bin  |  wheel scrna-matrix cp39-cp313  |  four private copies of file_identity.hpp"
+     ],
+     "size": 13
+    }
+   ],
+   "edges": [
+    {
+     "id": "e1",
+     "src": "c_cli",
+     "dst": "py_cli",
+     "kind": "control",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e2",
+     "src": "c_api",
+     "dst": "py_api",
+     "kind": "control",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e3",
+     "src": "py_cli",
+     "dst": "py_api",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e4",
+     "src": "py_cpu",
+     "dst": "py_api",
+     "kind": "control",
+     "label": "",
+     "s": "l",
+     "d": "r",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e5",
+     "src": "py_api",
+     "dst": "py_run",
+     "kind": "control",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e6",
+     "src": "py_run",
+     "dst": "py_bin",
+     "kind": "control",
+     "label": "",
+     "s": "l",
+     "d": "r",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e7",
+     "src": "py_run",
+     "dst": "py_err",
+     "kind": "error",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e8",
+     "src": "py_run",
+     "dst": "band",
+     "kind": "contract",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.2544642857142857
+    },
+    {
+     "id": "e9",
+     "src": "c_path",
+     "dst": "band",
+     "kind": "contract",
+     "label": "bare tool names",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5770089285714286
+    },
+    {
+     "id": "e10",
+     "src": "band",
+     "dst": "e_fq",
+     "kind": "contract",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.10491071428571429,
+     "d_at": 0.5
+    },
+    {
+     "id": "e11",
+     "src": "band",
+     "dst": "e_gtk",
+     "kind": "contract",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.3013392857142857,
+     "d_at": 0.5
+    },
+    {
+     "id": "e12",
+     "src": "band",
+     "dst": "e_pk",
+     "kind": "contract",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.49776785714285715,
+     "d_at": 0.5
+    },
+    {
+     "id": "e13",
+     "src": "band",
+     "dst": "e_cp",
+     "kind": "contract",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.6941964285714286,
+     "d_at": 0.5
+    },
+    {
+     "id": "e14",
+     "src": "c_brw",
+     "dst": "e_cp",
+     "kind": "payload",
+     "label": "HTTP 127.0.0.1",
+     "s": "b",
+     "d": "t",
+     "via": [
+      [
+       1416,
+       690
+      ],
+      [
+       1450,
+       690
+      ]
+     ],
+     "s_at": 0.5,
+     "d_at": 0.9329268292682927
+    },
+    {
+     "id": "e15",
+     "src": "c_scp",
+     "dst": "e_sc",
+     "kind": "payload",
+     "label": "in-process import",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.725609756097561
+    }
+   ]
+  },
+  {
+   "id": "p2",
+   "name": "2 Streaming",
+   "title": "fastq_stream moves buffer handles, not bytes",
+   "subtitle": "3 + D + W threads joined by lock-free SPSC rings; a 256 KiB payload is copied at four points only.",
+   "footer": "Sources: fastq_stream/src/pipeline.cpp:263-613, reader.cpp:32-380, buffer.hpp, lockfree_queue.hpp (commit 0ba20d1); thread math checked at 14 configurations",
+   "talk": [
+    "Buffers, not bytes, move between threads: 16-slot single-producer single-consumer rings hand Buffer handles across, and the payload is copied at four points only.",
+    "Order comes from topology, not sequence numbers: chunk k rides lane k mod D, and the assembler and writer read lanes in the same round-robin order.",
+    "Memory is bounded by the number of lanes, not the input: 15.8 MB of pool for a 12.8 MB file at -t 6, measured."
+   ],
+   "nodes": [
+    {
+     "id": "src",
+     "kind": "data",
+     "x": 64,
+     "y": 136,
+     "w": 232,
+     "h": 200,
+     "label": "SOURCE",
+     "body": [
+      "path | - | FIFO",
+      "BAM/CRAM/SAM by content",
+      "(regular files only)",
+      "framing: 1f 8b + BC = BGZF",
+      "1f 8b alone = gzip; else raw"
+     ],
+     "size": 13
+    },
+    {
+     "id": "read",
+     "kind": "cpp",
+     "x": 336,
+     "y": 136,
+     "w": 360,
+     "h": 200,
+     "label": "READER  1 thread",
+     "body": [
+      "FdSource 1 MiB stage + fadvise",
+      "BGZF: <= 4 whole members per Buffer (c1)",
+      "gzip: zlib inflate into the Buffer",
+      "raw: memcpy stage -> Buffer (c1)",
+      "BAM: htslib decode pool, FASTQ text",
+      "EOF: BGZF must end in its 28 B block"
+     ],
+     "size": 13
+    },
+    {
+     "id": "ringA",
+     "kind": "sync",
+     "x": 736,
+     "y": 136,
+     "w": 200,
+     "h": 200,
+     "label": "lane x D",
+     "body": [
+      "SpscRing<Buffer,16>",
+      "15 usable slots",
+      "closed flag",
+      "BGZF only"
+     ],
+     "size": 13
+    },
+    {
+     "id": "infl",
+     "kind": "cpp",
+     "x": 976,
+     "y": 136,
+     "w": 320,
+     "h": 200,
+     "label": "INFLATERS  D threads",
+     "body": [
+      "libdeflate, 1 decompressor each",
+      "4 members -> one 256 KiB Buffer",
+      "compressed Buffer -> in_pool",
+      "D = max(1, spare/3)"
+     ],
+     "size": 13
+    },
+    {
+     "id": "ringB",
+     "kind": "sync",
+     "x": 1336,
+     "y": 136,
+     "w": 200,
+     "h": 200,
+     "label": "lane x D",
+     "body": [
+      "pop order = push order",
+      "chunk k on lane k mod D"
+     ],
+     "size": 13
+    },
+    {
+     "id": "asm",
+     "kind": "cpp",
+     "x": 1526,
+     "y": 400,
+     "w": 330,
+     "h": 200,
+     "label": "ASSEMBLER  1 thread",
+     "body": [
+      "pop lane[k mod D] or the direct lane",
+      "carry spliced into 64 KiB prefix (c2)",
+      "cut at the 4th newline (memchr)",
+      "whole records -> lane j mod W",
+      "partial tail -> carry (max 64 KiB)"
+     ],
+     "size": 13
+    },
+    {
+     "id": "ringC",
+     "kind": "sync",
+     "x": 1290,
+     "y": 400,
+     "w": 200,
+     "h": 200,
+     "label": "lane x W",
+     "body": [
+      "input of worker i",
+      "chunk j on lane j mod W"
+     ],
+     "size": 13
+    },
+    {
+     "id": "work",
+     "kind": "cpp",
+     "x": 890,
+     "y": 400,
+     "w": 360,
+     "h": 200,
+     "label": "WORKERS  W threads",
+     "body": [
+      "out Buffer from out_pool (320 KiB)",
+      "checks -> Phred+64 rebase -> QC on RAW",
+      "trim -> adapters -> filters",
+      "survivors memcpy'd into out (c3)",
+      "SIMD: runtime ISA kernels",
+      "always ONE out Buffer per chunk"
+     ],
+     "size": 13
+    },
+    {
+     "id": "ringD",
+     "kind": "sync",
+     "x": 650,
+     "y": 400,
+     "w": 200,
+     "h": 200,
+     "label": "lane x W",
+     "body": [
+      "output of worker i",
+      "one Buffer per input chunk"
+     ],
+     "size": 13
+    },
+    {
+     "id": "writ",
+     "kind": "cpp",
+     "x": 364,
+     "y": 400,
+     "w": 250,
+     "h": 200,
+     "label": "WRITER  1 thread",
+     "body": [
+      "pop lane k mod W in order",
+      "write(2), EINTR retried (c4)",
+      "SIGPIPE ignored; close checked"
+     ],
+     "size": 13
+    },
+    {
+     "id": "sink",
+     "kind": "data",
+     "x": 64,
+     "y": 400,
+     "w": 260,
+     "h": 200,
+     "label": "SINK",
+     "body": [
+      "stdout | file | FIFO",
+      "--mkfifo: open blocks",
+      "until a reader attaches",
+      "refused: -i X -o X"
+     ],
+     "size": 13
+    },
+    {
+     "id": "p_buf",
+     "kind": "panel",
+     "x": 64,
+     "y": 632,
+     "w": 880,
+     "h": 184,
+     "label": "BUFFER ANATOMY   buffer.hpp:28-35",
+     "size": 13
+    },
+    {
+     "id": "b_pre",
+     "kind": "data",
+     "x": 88,
+     "y": 676,
+     "w": 280,
+     "h": 96,
+     "label": "kPrefix 64 KiB",
+     "body": [
+      "headroom in front of data()",
+      "extend_front() splices the carry"
+     ],
+     "parent": "p_buf",
+     "size": 13
+    },
+    {
+     "id": "b_pay",
+     "kind": "data",
+     "x": 368,
+     "y": 676,
+     "w": 552,
+     "h": 96,
+     "label": "payload 256 KiB (in_pool)   320 KiB (out_pool)",
+     "body": [
+      "data() ... size() ... capacity()",
+      "64 B aligned by aligned_alloc"
+     ],
+     "parent": "p_buf",
+     "size": 13
+    },
+    {
+     "id": "b_note",
+     "kind": "note",
+     "x": 88,
+     "y": 780,
+     "w": 832,
+     "h": 28,
+     "body": [
+      "handle = {pool*, base*, cap, size, front_} + seq (written, never read); free list under std::mutex"
+     ],
+     "parent": "p_buf",
+     "size": 13
+    },
+    {
+     "id": "p_ring",
+     "kind": "panel",
+     "x": 976,
+     "y": 632,
+     "w": 880,
+     "h": 184,
+     "label": "SPSC RING   lockfree_queue.hpp:47",
+     "size": 13
+    },
+    {
+     "id": "r0",
+     "kind": "sync",
+     "x": 1000,
+     "y": 676,
+     "w": 160,
+     "h": 96,
+     "label": "head_",
+     "body": [
+      "consumer"
+     ],
+     "parent": "p_ring",
+     "size": 13
+    },
+    {
+     "id": "r1",
+     "kind": "sync",
+     "x": 1172,
+     "y": 676,
+     "w": 160,
+     "h": 96,
+     "label": "cached_tail_",
+     "body": [
+      "consumer-private"
+     ],
+     "parent": "p_ring",
+     "size": 13
+    },
+    {
+     "id": "r2",
+     "kind": "sync",
+     "x": 1344,
+     "y": 676,
+     "w": 160,
+     "h": 96,
+     "label": "tail_",
+     "body": [
+      "producer"
+     ],
+     "parent": "p_ring",
+     "size": 13
+    },
+    {
+     "id": "r3",
+     "kind": "sync",
+     "x": 1516,
+     "y": 676,
+     "w": 160,
+     "h": 96,
+     "label": "cached_head_",
+     "body": [
+      "producer-private"
+     ],
+     "parent": "p_ring",
+     "size": 13
+    },
+    {
+     "id": "r4",
+     "kind": "sync",
+     "x": 1688,
+     "y": 676,
+     "w": 160,
+     "h": 96,
+     "label": "slots_[16]",
+     "body": [
+      "Buffer handles",
+      "15 usable"
+     ],
+     "parent": "p_ring",
+     "size": 13
+    },
+    {
+     "id": "r_note",
+     "kind": "note",
+     "x": 1000,
+     "y": 780,
+     "w": 832,
+     "h": 28,
+     "body": [
+      "each member alignas(128), so producer and consumer share no line; kCacheLine = 128 B on arm64 and x86-64"
+     ],
+     "parent": "p_ring",
+     "size": 13
+    },
+    {
+     "id": "p_copy",
+     "kind": "panel",
+     "x": 64,
+     "y": 832,
+     "w": 880,
+     "h": 184,
+     "label": "THE FOUR COPY POINTS",
+     "size": 13
+    },
+    {
+     "id": "c1",
+     "kind": "callout",
+     "x": 88,
+     "y": 876,
+     "w": 196,
+     "h": 124,
+     "label": "(c1) stage -> Buffer",
+     "body": [
+      "raw and BGZF compressed batch; gzip inflates in place"
+     ],
+     "parent": "p_copy",
+     "size": 13
+    },
+    {
+     "id": "c2",
+     "kind": "callout",
+     "x": 300,
+     "y": 876,
+     "w": 196,
+     "h": 124,
+     "label": "(c2) carry splice",
+     "body": [
+      "only the straddling partial record, at most 64 KiB"
+     ],
+     "parent": "p_copy",
+     "size": 13
+    },
+    {
+     "id": "c3",
+     "kind": "callout",
+     "x": 512,
+     "y": 876,
+     "w": 196,
+     "h": 124,
+     "label": "(c3) serialise",
+     "body": [
+      "worker writes surviving records into the out Buffer"
+     ],
+     "parent": "p_copy",
+     "size": 13
+    },
+    {
+     "id": "c4",
+     "kind": "callout",
+     "x": 724,
+     "y": 876,
+     "w": 196,
+     "h": 124,
+     "label": "(c4) write(2)",
+     "body": [
+      "the kernel's copy to file, FIFO or stdout"
+     ],
+     "parent": "p_copy",
+     "size": 13
+    },
+    {
+     "id": "p_ctl",
+     "kind": "panel",
+     "x": 976,
+     "y": 832,
+     "w": 880,
+     "h": 184,
+     "label": "CONTROL AND BOUNDS",
+     "size": 13
+    },
+    {
+     "id": "k_gate",
+     "kind": "sync",
+     "x": 1000,
+     "y": 876,
+     "w": 272,
+     "h": 124,
+     "label": "ErrorGate",
+     "body": [
+      "first error wins",
+      "abort flag polled in every ring wait",
+      "then join, then throw"
+     ],
+     "parent": "p_ctl",
+     "size": 13
+    },
+    {
+     "id": "k_term",
+     "kind": "sync",
+     "x": 1284,
+     "y": 876,
+     "w": 272,
+     "h": 124,
+     "label": "Termination",
+     "body": [
+      "producer release-stores closed",
+      "consumer exits on empty AND closed"
+     ],
+     "parent": "p_ctl",
+     "size": 13
+    },
+    {
+     "id": "k_mem",
+     "kind": "data",
+     "x": 1568,
+     "y": 876,
+     "w": 272,
+     "h": 124,
+     "label": "Memory bound",
+     "body": [
+      "(lanes x 15 + in-flight) x <= 384 KiB",
+      "measured 47 blocks = 15.8 MB, 12.8 MB FASTQ, -t 6"
+     ],
+     "parent": "p_ctl",
+     "size": 13
+    }
+   ],
+   "edges": [
+    {
+     "id": "e1",
+     "src": "src",
+     "dst": "read",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e2",
+     "src": "read",
+     "dst": "ringA",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e3",
+     "src": "ringA",
+     "dst": "infl",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e4",
+     "src": "infl",
+     "dst": "ringB",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e5",
+     "src": "ringB",
+     "dst": "asm",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e6",
+     "src": "read",
+     "dst": "asm",
+     "kind": "payload",
+     "label": "direct lane (gzip, raw, BAM)",
+     "s": "b",
+     "d": "t",
+     "via": [
+      [
+       516,
+       376
+      ],
+      [
+       1608,
+       376
+      ]
+     ],
+     "s_at": 0.5,
+     "d_at": 0.25
+    },
+    {
+     "id": "e7",
+     "src": "asm",
+     "dst": "ringC",
+     "kind": "payload",
+     "label": "",
+     "s": "l",
+     "d": "r",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e8",
+     "src": "ringC",
+     "dst": "work",
+     "kind": "payload",
+     "label": "",
+     "s": "l",
+     "d": "r",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e9",
+     "src": "work",
+     "dst": "ringD",
+     "kind": "payload",
+     "label": "",
+     "s": "l",
+     "d": "r",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e10",
+     "src": "ringD",
+     "dst": "writ",
+     "kind": "payload",
+     "label": "",
+     "s": "l",
+     "d": "r",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e11",
+     "src": "writ",
+     "dst": "sink",
+     "kind": "payload",
+     "label": "",
+     "s": "l",
+     "d": "r",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    }
+   ]
+  },
+  {
+   "id": "p3",
+   "name": "3 Engines",
+   "title": "Each engine is one pass: a control path and a core loop",
+   "subtitle": "Top row of each panel is main(); the row below is the loop that touches every record or region.",
+   "footer": "Sources: modules/*/src/main.cpp and the files named in each panel (commit 0ba20d1)",
+   "talk": [
+    "Every engine is one streaming pass with no sort and no temporary file. The one place results are held is pto-peaks' candidate list, because Benjamini-Hochberg needs every p-value.",
+    "Inputs that would otherwise print a plausible wrong number exit 2 instead: naming mismatch, unsorted input, every region skipped, Phred+64."
+   ],
+   "nodes": [
+    {
+     "id": "pa",
+     "kind": "panel",
+     "x": 64,
+     "y": 124,
+     "w": 880,
+     "h": 436,
+     "label": "1  fastq_stream   qc | trim   (main.cpp, pipeline.cpp)",
+     "size": 13
+    },
+    {
+     "id": "a0",
+     "kind": "cpp",
+     "x": 88,
+     "y": 188,
+     "w": 150,
+     "h": 100,
+     "label": "argv",
+     "body": [
+      "-i -o -j -t",
+      "--qc-only ..."
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "a1",
+     "kind": "cpp",
+     "x": 258,
+     "y": 188,
+     "w": 150,
+     "h": 100,
+     "label": "validate",
+     "body": [
+      "ranges, adapters;",
+      "usage error = rc 2"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "a2",
+     "kind": "cpp",
+     "x": 428,
+     "y": 188,
+     "w": 150,
+     "h": 100,
+     "label": "probe",
+     "body": [
+      "BAM/CRAM by content",
+      "(regular files)"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "a3",
+     "kind": "cpp",
+     "x": 598,
+     "y": 188,
+     "w": 150,
+     "h": 100,
+     "label": "run_pipeline",
+     "body": [
+      "see page 2:",
+      "3 + D + W threads"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "a4",
+     "kind": "cpp",
+     "x": 768,
+     "y": 188,
+     "w": 150,
+     "h": 100,
+     "label": "report + rc",
+     "body": [
+      "text, JSON (-j)",
+      "rc 0 | 1 | 2"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "b0",
+     "kind": "cpp",
+     "x": 88,
+     "y": 344,
+     "w": 150,
+     "h": 110,
+     "label": "checks",
+     "body": [
+      "header, SEQ, QUAL",
+      "printable;",
+      "Phred+64 rebase"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "b1",
+     "kind": "cpp",
+     "x": 258,
+     "y": 344,
+     "w": 150,
+     "h": 110,
+     "label": "QC on RAW",
+     "body": [
+      "counts, Q20/Q30",
+      "GC, N, per cycle"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "b2",
+     "kind": "cpp",
+     "x": 428,
+     "y": 344,
+     "w": 150,
+     "h": 110,
+     "label": "trim",
+     "body": [
+      "front, tail,",
+      "sliding window"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "b3",
+     "kind": "cpp",
+     "x": 598,
+     "y": 344,
+     "w": 150,
+     "h": 110,
+     "label": "adapters",
+     "body": [
+      "seed + extend",
+      "TruSeq, Nextera"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "b4",
+     "kind": "cpp",
+     "x": 768,
+     "y": 344,
+     "w": 150,
+     "h": 110,
+     "label": "filters",
+     "body": [
+      "min_len, max_n,",
+      "min_mean_q"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "pa_n",
+     "kind": "note",
+     "x": 88,
+     "y": 478,
+     "w": 832,
+     "h": 40,
+     "body": [
+      "rc 2 also when the qualities fit only Phred+64 and no --phred-offset was given (the report is printed first)"
+     ],
+     "parent": "pa",
+     "size": 13
+    },
+    {
+     "id": "pb",
+     "kind": "panel",
+     "x": 976,
+     "y": 124,
+     "w": 880,
+     "h": 436,
+     "label": "2  genomic_toolkit   sizes | markdup | frip",
+     "size": 13
+    },
+    {
+     "id": "c0",
+     "kind": "cpp",
+     "x": 1000,
+     "y": 188,
+     "w": 190,
+     "h": 100,
+     "label": "argv",
+     "body": [
+      "sizes|markdup|frip",
+      "checked int parse"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "c1",
+     "kind": "cpp",
+     "x": 1210,
+     "y": 188,
+     "w": 190,
+     "h": 100,
+     "label": "peaks [frip]",
+     "body": [
+      "read_peaks_bed",
+      "malformed = fatal"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "c2",
+     "kind": "cpp",
+     "x": 1420,
+     "y": 188,
+     "w": 190,
+     "h": 100,
+     "label": "PeakSet::build",
+     "body": [
+      "sort, merge overlap",
+      "and book-ended; SoA"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "c3",
+     "kind": "cpp",
+     "x": 1630,
+     "y": 188,
+     "w": 190,
+     "h": 100,
+     "label": "bind",
+     "body": [
+      "pre-seed contigs",
+      "peak tid -> stream tid"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "d0",
+     "kind": "cpp",
+     "x": 1000,
+     "y": 304,
+     "w": 190,
+     "h": 110,
+     "label": "stream_fragments",
+     "body": [
+      ".bam .cram .sam: htslib;",
+      "else .bedpe; else BED"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "d1",
+     "kind": "cpp",
+     "x": 1210,
+     "y": 304,
+     "w": 190,
+     "h": 110,
+     "label": "reader",
+     "body": [
+      "BAM: TLEN>0 = 1 pair",
+      "text: 1 MiB, cap 64 MiB/line"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "d2",
+     "kind": "cpp",
+     "x": 1420,
+     "y": 304,
+     "w": 190,
+     "h": 110,
+     "label": "BatchEmitter",
+     "body": [
+      "Fragment = 16 B",
+      "4096 per batch = 64 KiB",
+      "size histogram here"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "d3",
+     "kind": "cpp",
+     "x": 1630,
+     "y": 304,
+     "w": 190,
+     "h": 110,
+     "label": "consumers",
+     "body": [
+      "sizes: histogram",
+      "markdup: marker",
+      "frip: marker + count"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "dm",
+     "kind": "cpp",
+     "x": 1000,
+     "y": 434,
+     "w": 408,
+     "h": 96,
+     "label": "DuplicateMarker",
+     "body": [
+      "sorted: keys (end, strand) of ONE start",
+      "hash (--unsorted): 64-bit fingerprints",
+      "sets kDuplicate in place"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "fc",
+     "kind": "cpp",
+     "x": 1424,
+     "y": 434,
+     "w": 408,
+     "h": 96,
+     "label": "FripCounter.add_batch",
+     "body": [
+      "omp for if batch >= 512; per-thread cursor",
+      "5 integer sums; checked_add outside"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "pb_n",
+     "kind": "note",
+     "x": 1000,
+     "y": 538,
+     "w": 832,
+     "h": 20,
+     "body": [
+      "exit 2: nothing parsed | out of order (markdup; frip without --keep-dups) | no overlap and bad naming"
+     ],
+     "parent": "pb",
+     "size": 13
+    },
+    {
+     "id": "pc",
+     "kind": "panel",
+     "x": 64,
+     "y": 580,
+     "w": 880,
+     "h": 436,
+     "label": "3  cuttag_profiler   profile   (main.cpp, signal_calc.cpp, bam_reader.cpp)",
+     "size": 13
+    },
+    {
+     "id": "f0",
+     "kind": "cpp",
+     "x": 88,
+     "y": 644,
+     "w": 150,
+     "h": 100,
+     "label": "guards",
+     "body": [
+      "output != input",
+      "limits checked"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "f1",
+     "kind": "cpp",
+     "x": 258,
+     "y": 644,
+     "w": 150,
+     "h": 100,
+     "label": "regions",
+     "body": [
+      "BED/GTF (.gz)",
+      "names sanitised"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "f2",
+     "kind": "cpp",
+     "x": 428,
+     "y": 644,
+     "w": 150,
+     "h": 100,
+     "label": "BamReader",
+     "body": [
+      "header, index;",
+      "mapped total from",
+      "index metadata"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "f3",
+     "kind": "cpp",
+     "x": 598,
+     "y": 644,
+     "w": 150,
+     "h": 100,
+     "label": "compute",
+     "body": [
+      "compute_matrix:",
+      "N<=256, N<=rows;",
+      "row blocks"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "f4",
+     "kind": "cpp",
+     "x": 768,
+     "y": 644,
+     "w": 150,
+     "h": 100,
+     "label": "finish",
+     "body": [
+      "scale, means,",
+      "write TSV;",
+      "all skipped: rc 2"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "g0",
+     "kind": "cpp",
+     "x": 88,
+     "y": 800,
+     "w": 150,
+     "h": 110,
+     "label": "window",
+     "body": [
+      "TSS/center/TES",
+      "anchor; minus",
+      "strand mirrored"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "g1",
+     "kind": "cpp",
+     "x": 258,
+     "y": 800,
+     "w": 150,
+     "h": 110,
+     "label": "skip?",
+     "body": [
+      "no such contig,",
+      "or off the contig:",
+      "row = missing"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "g2",
+     "kind": "cpp",
+     "x": 428,
+     "y": 800,
+     "w": 150,
+     "h": 110,
+     "label": "query_bins",
+     "body": [
+      "widen by max fragment;",
+      "sam_itr_queryi"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "g3",
+     "kind": "cpp",
+     "x": 598,
+     "y": 800,
+     "w": 150,
+     "h": 110,
+     "label": "alignment",
+     "body": [
+      "flags + MAPQ;",
+      "leftmost mate:",
+      "TLEN span;",
+      "reads + bases"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "g4",
+     "kind": "cpp",
+     "x": 768,
+     "y": 800,
+     "w": 150,
+     "h": 110,
+     "label": "row",
+     "body": [
+      "fill bins;",
+      "minus strand reversed:",
+      "5' to 3'"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "pc_n",
+     "kind": "note",
+     "x": 88,
+     "y": 934,
+     "w": 832,
+     "h": 60,
+     "body": [
+      "matrix = regions x bins doubles, allocated up front (bins <= 10,000,000)",
+      "means: min(N, rows/64, 64 MiB/(cols*8)) reducers, cache-line aligned",
+      "skipped rows stay in the matrix but leave means, BPM total and scaling"
+     ],
+     "parent": "pc",
+     "size": 13
+    },
+    {
+     "id": "pd",
+     "kind": "panel",
+     "x": 976,
+     "y": 580,
+     "w": 880,
+     "h": 436,
+     "label": "4  pto-peaks   (main.cpp, sliding_window / caller / poisson_model / bam_streamer .hpp)",
+     "size": 13
+    },
+    {
+     "id": "h0",
+     "kind": "cpp",
+     "x": 1000,
+     "y": 644,
+     "w": 190,
+     "h": 100,
+     "label": "detect",
+     "body": [
+      "peek first byte:",
+      "1f = BAM, else BED",
+      "(stdin ok)"
+     ],
+     "parent": "pd",
+     "size": 13
+    },
+    {
+     "id": "h1",
+     "kind": "cpp",
+     "x": 1210,
+     "y": 644,
+     "w": 190,
+     "h": 100,
+     "label": "records",
+     "body": [
+      "BAM: BGZF + CRC32,",
+      "leftmost mate TLEN>0",
+      "BED: 4 MiB blocks"
+     ],
+     "parent": "pd",
+     "size": 13
+    },
+    {
+     "id": "h2",
+     "kind": "cpp",
+     "x": 1420,
+     "y": 644,
+     "w": 190,
+     "h": 100,
+     "label": "Driver.add",
+     "body": [
+      "order and bounds",
+      "checked; seek across",
+      "coverage deserts"
+     ],
+     "parent": "pd",
+     "size": 13
+    },
+    {
+     "id": "h3",
+     "kind": "cpp",
+     "x": 1630,
+     "y": 644,
+     "w": 190,
+     "h": 100,
+     "label": "finalize",
+     "body": [
+      "BH over ALL",
+      "candidates, then",
+      "narrowPeak"
+     ],
+     "parent": "pd",
+     "size": 13
+    },
+    {
+     "id": "i0",
+     "kind": "cpp",
+     "x": 1000,
+     "y": 800,
+     "w": 190,
+     "h": 110,
+     "label": "MultiScaleWindow",
+     "body": [
+      "delta + pileup rings,",
+      "2 x 16384 x int64",
+      "= 256 KiB"
+     ],
+     "parent": "pd",
+     "size": 13
+    },
+    {
+     "id": "i1",
+     "kind": "cpp",
+     "x": 1210,
+     "y": 800,
+     "w": 190,
+     "h": 110,
+     "label": "3 backgrounds",
+     "body": [
+      "centred 1k, 5k, 10k",
+      "running sums;",
+      "lag = 5000 bases"
+     ],
+     "parent": "pd",
+     "size": 13
+    },
+    {
+     "id": "i2",
+     "kind": "cpp",
+     "x": 1420,
+     "y": 800,
+     "w": 190,
+     "h": 110,
+     "label": "PeakCaller",
+     "body": [
+      "prefilter, queue of 256,",
+      "SIMD Poisson -log10 p"
+     ],
+     "parent": "pd",
+     "size": 13
+    },
+    {
+     "id": "i3",
+     "kind": "cpp",
+     "x": 1630,
+     "y": 800,
+     "w": 190,
+     "h": 110,
+     "label": "state machine",
+     "body": [
+      "IDLE, IN_PEAK,",
+      "SUMMIT_SEARCH,",
+      "CLOSING (max_gap)"
+     ],
+     "parent": "pd",
+     "size": 13
+    },
+    {
+     "id": "pd_n",
+     "kind": "note",
+     "x": 1000,
+     "y": 934,
+     "w": 832,
+     "h": 60,
+     "body": [
+      "lambda = max(genome floor, 3 local rates); a degenerate lambda scores p = 1 (fails closed)",
+      "peaks are held (32 B each) until finalize(): BH needs every p-value, so only the INPUT streams",
+      "exit 2: unsorted, contig not in sizes, bad field, BED fragment > 4096 bp (BAM: counted skipped)"
+     ],
+     "parent": "pd",
+     "size": 13
+    }
+   ],
+   "edges": [
+    {
+     "id": "e1",
+     "src": "a0",
+     "dst": "a1",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e2",
+     "src": "a1",
+     "dst": "a2",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e3",
+     "src": "a2",
+     "dst": "a3",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e4",
+     "src": "a3",
+     "dst": "a4",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e5",
+     "src": "b0",
+     "dst": "b1",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e6",
+     "src": "b1",
+     "dst": "b2",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e7",
+     "src": "b2",
+     "dst": "b3",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e8",
+     "src": "b3",
+     "dst": "b4",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e9",
+     "src": "a3",
+     "dst": "b0",
+     "kind": "control",
+     "label": "per record, in each of W workers",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e10",
+     "src": "c0",
+     "dst": "c1",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e11",
+     "src": "c1",
+     "dst": "c2",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e12",
+     "src": "c2",
+     "dst": "c3",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e13",
+     "src": "d0",
+     "dst": "d1",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e14",
+     "src": "d1",
+     "dst": "d2",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e15",
+     "src": "d2",
+     "dst": "d3",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e16",
+     "src": "c1",
+     "dst": "d0",
+     "kind": "control",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e17",
+     "src": "d3",
+     "dst": "dm",
+     "kind": "payload",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e18",
+     "src": "d3",
+     "dst": "fc",
+     "kind": "payload",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e19",
+     "src": "f0",
+     "dst": "f1",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e20",
+     "src": "f1",
+     "dst": "f2",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e21",
+     "src": "f2",
+     "dst": "f3",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e22",
+     "src": "f3",
+     "dst": "f4",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e23",
+     "src": "g0",
+     "dst": "g1",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e24",
+     "src": "g1",
+     "dst": "g2",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e25",
+     "src": "g2",
+     "dst": "g3",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e26",
+     "src": "g3",
+     "dst": "g4",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e27",
+     "src": "f3",
+     "dst": "g0",
+     "kind": "control",
+     "label": "per region, in each of N workers",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e28",
+     "src": "h0",
+     "dst": "h1",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e29",
+     "src": "h1",
+     "dst": "h2",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e30",
+     "src": "h2",
+     "dst": "h3",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e31",
+     "src": "i0",
+     "dst": "i1",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e32",
+     "src": "i1",
+     "dst": "i2",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e33",
+     "src": "i2",
+     "dst": "i3",
+     "kind": "payload",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e34",
+     "src": "h2",
+     "dst": "i0",
+     "kind": "control",
+     "label": "per base, one thread",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    }
+   ]
+  },
+  {
+   "id": "p4",
+   "name": "4 Integration",
+   "title": "Everything outside the engines meets them at one contract",
+   "subtitle": "argv in; JSON, files and an exit code out. The wrapper adds resolution, thread budgeting and error typing.",
+   "footer": "Sources: packaging/pto/*, pyproject.toml, ci.yml, wheels.yml, http_server.cpp:401-803, deploy/* (commit 0ba20d1); dashboard probed live",
+   "talk": [
+    "The Python wrapper is thin: it resolves a binary, budgets threads, runs argv without a shell, and types the exit code.",
+    "The dashboard is the only network path: Host, then Origin, then a 256-bit token, all in one pre-routing handler, then a body cap and path confinement.",
+    "A finding: the wheel's cuttag_profiler still contains serve, reachable through pto-core exec, although the Python API never builds it."
+   ],
+   "nodes": [
+    {
+     "id": "pA",
+     "kind": "panel",
+     "x": 64,
+     "y": 124,
+     "w": 1100,
+     "h": 480,
+     "label": "A   FOUR WAYS IN",
+     "size": 13
+    },
+    {
+     "id": "lab0",
+     "kind": "note",
+     "x": 80,
+     "y": 202,
+     "w": 112,
+     "h": 24,
+     "body": [
+      "PYTHON API"
+     ],
+     "parent": "pA",
+     "size": 12
+    },
+    {
+     "id": "l00",
+     "kind": "py",
+     "x": 200,
+     "y": 168,
+     "w": 210,
+     "h": 96,
+     "label": "pto.frip(...)",
+     "body": [
+      "7 functions",
+      "None kwargs omitted"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l01",
+     "kind": "py",
+     "x": 430,
+     "y": 168,
+     "w": 210,
+     "h": 96,
+     "label": "run_tool",
+     "body": [
+      "resolve binary",
+      "argv, shell=False"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l02",
+     "kind": "py",
+     "x": 660,
+     "y": 168,
+     "w": 210,
+     "h": 96,
+     "label": "Popen + wait4",
+     "body": [
+      "os.wait4: rc + max RSS",
+      "stdio to temp files"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l03",
+     "kind": "py",
+     "x": 890,
+     "y": 168,
+     "w": 210,
+     "h": 96,
+     "label": "result",
+     "body": [
+      "rc 0: Result",
+      "rc 2: InvalidInput",
+      "else ToolError"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "lab1",
+     "kind": "note",
+     "x": 80,
+     "y": 362,
+     "w": 112,
+     "h": 24,
+     "body": [
+      "pto-core"
+     ],
+     "parent": "pA",
+     "size": 12
+    },
+    {
+     "id": "l10",
+     "kind": "py",
+     "x": 200,
+     "y": 328,
+     "w": 210,
+     "h": 96,
+     "label": "pto-core frip",
+     "body": [
+      "argparse subcommand",
+      "--json optional"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l11",
+     "kind": "py",
+     "x": 430,
+     "y": 328,
+     "w": 210,
+     "h": 96,
+     "label": "cli._cmd_frip",
+     "body": [
+      "calls pto.api.frip"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l12",
+     "kind": "py",
+     "x": 660,
+     "y": 328,
+     "w": 210,
+     "h": 96,
+     "label": "output",
+     "body": [
+      "metrics: stdout",
+      "cost: stderr"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l13",
+     "kind": "py",
+     "x": 890,
+     "y": 328,
+     "w": 210,
+     "h": 96,
+     "label": "exit code",
+     "body": [
+      "0 ok | 1 error",
+      "2 InvalidInput",
+      "141 broken pipe"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "lab2",
+     "kind": "note",
+     "x": 80,
+     "y": 522,
+     "w": 112,
+     "h": 24,
+     "body": [
+      "exec / PATH"
+     ],
+     "parent": "pA",
+     "size": 12
+    },
+    {
+     "id": "l20",
+     "kind": "py",
+     "x": 200,
+     "y": 488,
+     "w": 210,
+     "h": 96,
+     "label": "pto-core exec",
+     "body": [
+      "os.execv: no Python",
+      "frame remains"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l21",
+     "kind": "py",
+     "x": 430,
+     "y": 488,
+     "w": 210,
+     "h": 96,
+     "label": "bin-dir",
+     "body": [
+      "prints the engine",
+      "directory"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l22",
+     "kind": "py",
+     "x": 660,
+     "y": 488,
+     "w": 210,
+     "h": 96,
+     "label": "PATH",
+     "body": [
+      "export PATH=",
+      "$(pto-core bin-dir):$PATH"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "l23",
+     "kind": "ext",
+     "x": 890,
+     "y": 488,
+     "w": 210,
+     "h": 96,
+     "label": "shell, SLURM, Nextflow",
+     "body": [
+      "bare tool names"
+     ],
+     "parent": "pA",
+     "size": 13
+    },
+    {
+     "id": "pB",
+     "kind": "panel",
+     "x": 1196,
+     "y": 124,
+     "w": 660,
+     "h": 480,
+     "label": "B   RESOLUTION AND THREADS",
+     "size": 13
+    },
+    {
+     "id": "r1",
+     "kind": "py",
+     "x": 1220,
+     "y": 176,
+     "w": 190,
+     "h": 88,
+     "label": "1  $PTO_BIN_DIR",
+     "body": [
+      "override; no reinstall"
+     ],
+     "parent": "pB",
+     "size": 13
+    },
+    {
+     "id": "r2",
+     "kind": "py",
+     "x": 1430,
+     "y": 176,
+     "w": 190,
+     "h": 88,
+     "label": "2  pto/_vendor/bin",
+     "body": [
+      "wheel-vendored"
+     ],
+     "parent": "pB",
+     "size": 13
+    },
+    {
+     "id": "r3",
+     "kind": "py",
+     "x": 1640,
+     "y": 176,
+     "w": 190,
+     "h": 88,
+     "label": "3  $PATH",
+     "body": [
+      "shutil.which"
+     ],
+     "parent": "pB",
+     "size": 13
+    },
+    {
+     "id": "r_err",
+     "kind": "gate",
+     "x": 1220,
+     "y": 296,
+     "w": 610,
+     "h": 84,
+     "label": "none found: BinaryNotFound",
+     "body": [
+      "lists the searched directories and prints the cmake build recipe"
+     ],
+     "parent": "pB",
+     "size": 13
+    },
+    {
+     "id": "r_tools",
+     "kind": "callout",
+     "x": 1220,
+     "y": 400,
+     "w": 610,
+     "h": 76,
+     "label": "TOOLS = the four engines",
+     "body": [
+      "a test fails if the wheel vendors a fifth binary that TOOLS lacks"
+     ],
+     "parent": "pB",
+     "size": 13
+    },
+    {
+     "id": "r_thr",
+     "kind": "callout",
+     "x": 1220,
+     "y": 492,
+     "w": 610,
+     "h": 96,
+     "label": "thread budget",
+     "body": [
+      "min(sched_getaffinity, cgroup quota, cpu_count), at least 1",
+      "passed as -t (fastq_stream) and --threads (cuttag_profiler) only",
+      "genomic_toolkit and pto-peaks get none; OMP_NUM_THREADS is not set"
+     ],
+     "parent": "pB",
+     "size": 13
+    },
+    {
+     "id": "tbl",
+     "kind": "panel",
+     "x": 64,
+     "y": 620,
+     "w": 1100,
+     "h": 274,
+     "table": {
+      "cols": [
+       190,
+       220,
+       200,
+       290,
+       200
+      ],
+      "header": [
+       "engine",
+       "machine-readable",
+       "artifacts",
+       "exit codes",
+       "thread control"
+      ],
+      "rows": [
+       [
+        [
+         "fastq_stream",
+         "qc | trim"
+        ],
+        [
+         "JSON file: -j PATH",
+         "text: --report PATH",
+         "wrapper reads the JSON"
+        ],
+        [
+         "trimmed FASTQ:",
+         "-o FILE | FIFO | -"
+        ],
+        [
+         "0 ok, 1 runtime",
+         "2 usage error, or",
+         "Phred+64 suspected"
+        ],
+        [
+         "-t N: wrapper passes it"
+        ]
+       ],
+       [
+        [
+         "genomic_toolkit",
+         "sizes markdup frip"
+        ],
+        [
+         "JSON on stdout (--json)"
+        ],
+        [
+         "histogram TSV:",
+         "--histogram FILE"
+        ],
+        [
+         "0 ok, 1 usage or system",
+         "2 input shape: naming,",
+         "order, nothing parsed"
+        ],
+        [
+         "no flag; OpenMP reads",
+         "OMP_NUM_THREADS",
+         "(wrapper leaves it unset)"
+        ]
+       ],
+       [
+        [
+         "cuttag_profiler",
+         "profile | serve"
+        ],
+        [
+         "none: summary on stderr"
+        ],
+        [
+         "matrix.tsv, profile.tsv",
+         "(or HTTP: serve)"
+        ],
+        [
+         "0 ok, 1 error",
+         "2 every region skipped"
+        ],
+        [
+         "--threads N: wrapper",
+         "passes it"
+        ]
+       ],
+       [
+        [
+         "pto-peaks"
+        ],
+        [
+         "none: counts on stderr"
+        ],
+        [
+         "narrowPeak: --out FILE",
+         "(default stdout)"
+        ],
+        [
+         "0 ok, 1 usage or I/O",
+         "2 unsorted, contig missing,",
+         "bad field"
+        ],
+        [
+         "single-threaded;",
+         "no thread option"
+        ]
+       ]
+      ]
+     },
+     "size": 12
+    },
+    {
+     "id": "pD",
+     "kind": "panel",
+     "x": 1196,
+     "y": 620,
+     "w": 660,
+     "h": 274,
+     "label": "D   BUILD, PACKAGE, PUBLISH",
+     "size": 13
+    },
+    {
+     "id": "d1",
+     "kind": "build",
+     "x": 1220,
+     "y": 668,
+     "w": 196,
+     "h": 96,
+     "label": "cmake -S .",
+     "body": [
+      "PTO_BUILD_* x5",
+      "PTO_CLOUD_BUILD off"
+     ],
+     "parent": "pD",
+     "size": 13
+    },
+    {
+     "id": "d2",
+     "kind": "build",
+     "x": 1428,
+     "y": 668,
+     "w": 196,
+     "h": 96,
+     "label": "scikit-build-core",
+     "body": [
+      "install-dir pto/_vendor",
+      "headers dropped"
+     ],
+     "parent": "pD",
+     "size": 13
+    },
+    {
+     "id": "d3",
+     "kind": "build",
+     "x": 1636,
+     "y": 668,
+     "w": 196,
+     "h": 96,
+     "label": "cibuildwheel",
+     "body": [
+      "cp312 pin, py3-none-*",
+      "doctor + pytest"
+     ],
+     "parent": "pD",
+     "size": 13
+    },
+    {
+     "id": "d4",
+     "kind": "build",
+     "x": 1220,
+     "y": 784,
+     "w": 196,
+     "h": 96,
+     "label": "repair",
+     "body": [
+      "delocate (macOS)",
+      "auditwheel (Linux)"
+     ],
+     "parent": "pD",
+     "size": 13
+    },
+    {
+     "id": "d5",
+     "kind": "build",
+     "x": 1428,
+     "y": 784,
+     "w": 196,
+     "h": 96,
+     "label": "publish",
+     "body": [
+      "v* tag -> PyPI",
+      "OIDC, no token"
+     ],
+     "parent": "pD",
+     "size": 13
+    },
+    {
+     "id": "d6",
+     "kind": "callout",
+     "x": 1636,
+     "y": 784,
+     "w": 196,
+     "h": 96,
+     "label": "vendored libs",
+     "body": [
+      "macOS: libomp, libhts",
+      "Linux: libgomp, static htslib"
+     ],
+     "parent": "pD",
+     "size": 13
+    },
+    {
+     "id": "pE",
+     "kind": "zone_gate",
+     "x": 64,
+     "y": 908,
+     "w": 1792,
+     "h": 140,
+     "label": "TRUST BOUNDARY   127.0.0.1 only   Host, then Origin, then token, in one pre-routing handler for /api/*",
+     "size": 13
+    },
+    {
+     "id": "w0",
+     "kind": "ext",
+     "x": 88,
+     "y": 952,
+     "w": 200,
+     "h": 88,
+     "label": "client",
+     "body": [
+      "browser or curl",
+      "URL carries ?t=TOKEN"
+     ],
+     "parent": "pE",
+     "size": 13
+    },
+    {
+     "id": "w1",
+     "kind": "gate",
+     "x": 308,
+     "y": 952,
+     "w": 200,
+     "h": 88,
+     "label": "Host  421",
+     "body": [
+      "loopback name + port",
+      "defeats DNS rebinding"
+     ],
+     "parent": "pE",
+     "size": 13
+    },
+    {
+     "id": "w2",
+     "kind": "gate",
+     "x": 528,
+     "y": 952,
+     "w": 200,
+     "h": 88,
+     "label": "Origin  403",
+     "body": [
+      "absent ok; present must",
+      "be this server"
+     ],
+     "parent": "pE",
+     "size": 13
+    },
+    {
+     "id": "w3",
+     "kind": "gate",
+     "x": 748,
+     "y": 952,
+     "w": 200,
+     "h": 88,
+     "label": "token  401",
+     "body": [
+      "?t= or Bearer",
+      "constant-time compare"
+     ],
+     "parent": "pE",
+     "size": 13
+    },
+    {
+     "id": "w4",
+     "kind": "gate",
+     "x": 968,
+     "y": 952,
+     "w": 200,
+     "h": 88,
+     "label": "body gates",
+     "body": [
+      "<= 1 MiB: 413",
+      "JSON type: 415"
+     ],
+     "parent": "pE",
+     "size": 13
+    },
+    {
+     "id": "w5",
+     "kind": "gate",
+     "x": 1188,
+     "y": 952,
+     "w": 200,
+     "h": 88,
+     "label": "resolve_input",
+     "body": [
+      "under data root: 400",
+      "open once, on the fd"
+     ],
+     "parent": "pE",
+     "size": 13
+    },
+    {
+     "id": "w6",
+     "kind": "cpp",
+     "x": 1408,
+     "y": 952,
+     "w": 200,
+     "h": 88,
+     "label": "compute",
+     "body": [
+      "compute_matrix",
+      "HTTP pool = 16 threads"
+     ],
+     "parent": "pE",
+     "size": 13
+    },
+    {
+     "id": "w7",
+     "kind": "cpp",
+     "x": 1628,
+     "y": 952,
+     "w": 200,
+     "h": 88,
+     "label": "cache + fetch",
+     "body": [
+      "MatrixCache 512 MiB, 4",
+      "GET /api/matrix?token=M"
+     ],
+     "parent": "pE",
+     "size": 13
+    }
+   ],
+   "edges": [
+    {
+     "id": "e1",
+     "src": "l00",
+     "dst": "l01",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e2",
+     "src": "l01",
+     "dst": "l02",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e3",
+     "src": "l02",
+     "dst": "l03",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e4",
+     "src": "l10",
+     "dst": "l11",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e5",
+     "src": "l11",
+     "dst": "l12",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e6",
+     "src": "l12",
+     "dst": "l13",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e7",
+     "src": "l20",
+     "dst": "l21",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e8",
+     "src": "l21",
+     "dst": "l22",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e9",
+     "src": "l22",
+     "dst": "l23",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e10",
+     "src": "r1",
+     "dst": "r2",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e11",
+     "src": "r2",
+     "dst": "r3",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e12",
+     "src": "r3",
+     "dst": "r_err",
+     "kind": "error",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.85
+    },
+    {
+     "id": "e13",
+     "src": "d1",
+     "dst": "d2",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e14",
+     "src": "d2",
+     "dst": "d3",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e15",
+     "src": "d3",
+     "dst": "d4",
+     "kind": "control",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e16",
+     "src": "d4",
+     "dst": "d5",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e17",
+     "src": "w0",
+     "dst": "w1",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e18",
+     "src": "w1",
+     "dst": "w2",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e19",
+     "src": "w2",
+     "dst": "w3",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e20",
+     "src": "w3",
+     "dst": "w4",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e21",
+     "src": "w4",
+     "dst": "w5",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e22",
+     "src": "w5",
+     "dst": "w6",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e23",
+     "src": "w6",
+     "dst": "w7",
+     "kind": "control",
+     "label": "",
+     "s": "r",
+     "d": "l",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    }
+   ]
+  },
+  {
+   "id": "p5",
+   "name": "5 Concurrency and ISA",
+   "title": "Determinism is tested, not assumed: threads, ISA and memory",
+   "subtitle": "(ran) = executed in this review on an arm64 host; (static) = read from source or CI configuration only.",
+   "footer": "Sources: simd.hpp:4-568, poisson_model.hpp:1715-1889, simd_math.hpp:704-770, knn_graph.hpp:131-427, signal_calc.cpp, frip.hpp, ci.yml (commit 0ba20d1)",
+   "talk": [
+    "One dispatch pattern, three engines: fastq_stream, pto-peaks and scrna_matrix. genomic_toolkit and cuttag_profiler contain no hand-written SIMD.",
+    "Determinism was checked by running: identical results across framings, ISAs and thread counts.",
+    "There is no mmap anywhere in first-party code; memory is bounded by structure, not by a mapping."
+   ],
+   "nodes": [
+    {
+     "id": "tA",
+     "kind": "panel",
+     "x": 64,
+     "y": 124,
+     "w": 1792,
+     "h": 224,
+     "table": {
+      "cols": [
+       170,
+       520,
+       560,
+       542
+      ],
+      "header": [
+       "engine",
+       "threads and primitive",
+       "shared state and synchronisation",
+       "ordering and determinism evidence"
+      ],
+      "rows": [
+       [
+        [
+         "fastq_stream"
+        ],
+        [
+         "3+D+W std::thread: reader, D inflaters, assembler, W workers, writer; BAM adds an htslib decode pool"
+        ],
+        [
+         "SPSC rings with acquire/release atomics, no CAS; buffer pools under std::mutex; ErrorGate = mutex + abort atomic"
+        ],
+        [
+         "lane order = stream order; raw, gzip, BGZF and NEON vs scalar give 1 identical result (ran)"
+        ]
+       ],
+       [
+        [
+         "genomic_toolkit"
+        ],
+        [
+         "1 streaming thread; OpenMP parallel for in FRiP when the batch has >= 512 fragments, schedule(static)"
+        ],
+        [
+         "PeakSet is immutable; per-thread OverlapCursor; integer reductions; checked_add outside the parallel region"
+        ],
+        [
+         "identical JSON at OMP_NUM_THREADS=1 and 8; region tiles sum to the whole file (ran)"
+        ]
+       ],
+       [
+        [
+         "cuttag_profiler"
+        ],
+        [
+         "profile: N std::thread workers, block-partitioned rows, then min(N, rows/64, memory) reducers. serve: httplib pool of 16"
+        ],
+        [
+         "one leased htsFile per worker (mutex-guarded list); index and header shared read-only; alias lookup under a mutex; reader map and MatrixCache under mutexes"
+        ],
+        [
+         "profile: matrix and profile byte-identical at 1 and 8 threads (sha256, ran); serve gates probed live (ran)"
+        ]
+       ],
+       [
+        [
+         "pto-peaks"
+        ],
+        [
+         "1 thread; SIMD lanes only inside the Poisson evaluation"
+        ],
+        [
+         "nothing shared"
+        ],
+        [
+         "scalar and NEON outputs byte-identical (ran)"
+        ]
+       ],
+       [
+        [
+         "scrna_matrix"
+        ],
+        [
+         "OpenMP: norms static; tile pairs in circle-method rounds (dynamic); HNSW build and query in parallel"
+        ],
+        [
+         "one heap per row; a round's tile pairs are disjoint, so no locks; write_mutex_ guards index mutation"
+        ],
+        [
+         "brute force deterministic (tie-break by row); HNSW approximate and not reproducible when threaded (static, not built here)"
+        ]
+       ]
+      ]
+     },
+     "size": 12
+    },
+    {
+     "id": "tB",
+     "kind": "panel",
+     "x": 64,
+     "y": 372,
+     "w": 1240,
+     "h": 198,
+     "table": {
+      "cols": [
+       170,
+       400,
+       300,
+       370
+      ],
+      "header": [
+       "engine",
+       "kernels",
+       "ISAs",
+       "override and evidence"
+      ],
+      "rows": [
+       [
+        [
+         "fastq_stream"
+        ],
+        [
+         "all_printable, count_ge, add_widen_u8_to_u32, mismatches, find_seed4 (sum_u8: tests only)"
+        ],
+        [
+         "scalar, NEON, AVX2, AVX-512BW (opt-in FQ_ENABLE_AVX512)"
+        ],
+        [
+         "FQ_FORCE_ISA. ran: NEON by default, scalar on request, avx2 ignored on arm64"
+        ]
+       ],
+       [
+        [
+         "pto-peaks"
+        ],
+        [
+         "Poisson -log10 p in batches of 256 bases; lanes 8/4/2/1 doubles"
+        ],
+        [
+         "AVX-512F+DQ (opt-in), AVX2+FMA, NEON, scalar"
+        ],
+        [
+         "PTO_PEAKS_FORCE_ISA. ran: scalar output == NEON output, byte for byte"
+        ]
+       ],
+       [
+        [
+         "scrna_matrix"
+        ],
+        [
+         "gather_dot, dense_dot; HNSW distance via ScrnaCosineSpace; sparse merge-join is scalar"
+        ],
+        [
+         "AVX-512F+BW (opt-in), AVX2+FMA, NEON, scalar"
+        ],
+        [
+         "SCRNA_FORCE_ISA; Python simd_isa(). static + CI sweep only"
+        ]
+       ],
+       [
+        [
+         "genomic_toolkit",
+         "cuttag_profiler"
+        ],
+        [
+         "none: no intrinsics or CPU probes in first-party sources (grep)"
+        ],
+        [
+         "compiler auto-vectorisation only"
+        ],
+        [
+         "-march=native is OFF by default in both"
+        ]
+       ]
+      ]
+     },
+     "size": 12
+    },
+    {
+     "id": "mech",
+     "kind": "panel",
+     "x": 1336,
+     "y": 372,
+     "w": 520,
+     "h": 268,
+     "label": "ONE DISPATCH MECHANISM",
+     "size": 13
+    },
+    {
+     "id": "m0",
+     "kind": "sync",
+     "x": 1360,
+     "y": 420,
+     "w": 472,
+     "h": 44,
+     "label": "1  FORCE_ISA env, if that ISA is compiled in",
+     "parent": "mech",
+     "size": 13
+    },
+    {
+     "id": "m1",
+     "kind": "sync",
+     "x": 1360,
+     "y": 476,
+     "w": 472,
+     "h": 44,
+     "label": "2  __builtin_cpu_supports (also OS save)",
+     "parent": "mech",
+     "size": 13
+    },
+    {
+     "id": "m2",
+     "kind": "sync",
+     "x": 1360,
+     "y": 532,
+     "w": 472,
+     "h": 44,
+     "label": "3  NEON on AArch64: no probe",
+     "parent": "mech",
+     "size": 13
+    },
+    {
+     "id": "m3",
+     "kind": "sync",
+     "x": 1360,
+     "y": 588,
+     "w": 472,
+     "h": 44,
+     "label": "4  scalar reference",
+     "parent": "mech",
+     "size": 13
+    },
+    {
+     "id": "tC",
+     "kind": "panel",
+     "x": 64,
+     "y": 664,
+     "w": 1792,
+     "h": 186,
+     "table": {
+      "cols": [
+       170,
+       800,
+       822
+      ],
+      "header": [
+       "engine",
+       "resident bound",
+       "layout and I/O primitive"
+      ],
+      "rows": [
+       [
+        [
+         "fastq_stream"
+        ],
+        [
+         "(lanes x 15 slots + in-flight) x <= 384 KiB; not a function of input size (47 blocks = 15.8 MB, ran)"
+        ],
+        [
+         "Buffer 64 B aligned; ring cursors 128 B apart; read(2) into a 1 MiB stage with posix_fadvise(SEQUENTIAL)"
+        ]
+       ],
+       [
+        [
+         "genomic_toolkit"
+        ],
+        [
+         "histogram 2,001 counters; dup marker O(deepest pile-up) or O(distinct) with --unsorted; batch 64 KiB"
+        ],
+        [
+         "Fragment 16 B; alignas(64) arrays; LineReader 1 MiB growing to a 64 MiB cap; htslib for BAM/CRAM"
+        ]
+       ],
+       [
+        [
+         "cuttag_profiler"
+        ],
+        [
+         "rows x bins x 8 B allocated up front; one tally per worker; matrix cache 512 MiB / 4 entries (server)"
+        ],
+        [
+         "per-reducer aligned accumulators; indexed queries through htslib; server parses regions from the fd"
+        ]
+       ],
+       [
+        [
+         "pto-peaks"
+        ],
+        [
+         "2 rings x 128 KiB; candidates 32 B each + ~12 B BH scratch; not a function of contig length"
+        ],
+        [
+         "4 MiB block reads, 1 MiB line cap; BGZF decoded natively in place, no per-record allocation"
+        ]
+       ],
+       [
+        [
+         "scrna_matrix"
+        ],
+        [
+         "CSR + KnnGraph n*k*8 B; per-row heaps O(n*k); HNSW ~ n*dim*4 B + links (hnsw_index_bytes guards it)"
+        ],
+        [
+         "AlignedAllocator 64 B; NumPy buffers adopted in place if aligned and immutable; no file I/O"
+        ]
+       ],
+       [
+        [
+         "all engines"
+        ],
+        [
+         "memory-mapping: NONE. No mmap, madvise or MAP_* in first-party code (grep)"
+        ],
+        [
+         "the only page-cache hint is one posix_fadvise(SEQUENTIAL), fastq_stream reader.cpp:76"
+        ]
+       ]
+      ]
+     },
+     "size": 12
+    }
+   ],
+   "edges": [
+    {
+     "id": "e1",
+     "src": "m0",
+     "dst": "m1",
+     "kind": "control",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e2",
+     "src": "m1",
+     "dst": "m2",
+     "kind": "control",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    },
+    {
+     "id": "e3",
+     "src": "m2",
+     "dst": "m3",
+     "kind": "control",
+     "label": "",
+     "s": "b",
+     "d": "t",
+     "via": [],
+     "s_at": 0.5,
+     "d_at": 0.5
+    }
+   ]
+  }
+ ]
+}

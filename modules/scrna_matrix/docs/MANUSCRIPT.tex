@@ -1,0 +1,100 @@
+% Manuscript skeleton targeting GigaScience / IEEE-ACM TCBB submission format.
+% Fill in \author, \affiliation, and body sections as results land.
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\title{A Cache-Aligned Sparse Matrix Engine for High-Dimensional \\
+       Single-Cell RNA Sequencing Analysis}
+
+\author{%
+  % TODO: author list and affiliations
+}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Single-cell RNA sequencing (scRNA-seq) datasets routinely exceed one million
+cells, and standard sparse-matrix analysis frameworks --- \texttt{scanpy}
+(Python) and \texttt{Seurat} (R) --- incur substantial CPU cache thrashing
+and out-of-memory failures during $k$-nearest-neighbor (\emph{k}-NN) graph
+construction, cell-cell cosine distance computation, and library-size
+normalization, owing to the non-contiguous memory access patterns of
+Compressed Sparse Row/Column (CSR/CSC) formats. We present
+\texttt{Block\_CSR}, a header-only C++20 sparse matrix library built around a
+64-byte (cache-line) aligned block-compressed sparse row layout, with
+AVX2/AVX-512 SIMD kernels for sparse dot products and cosine similarity, and
+zero-copy \texttt{pybind11} interoperability with NumPy/SciPy. % TODO: results summary
+\end{abstract}
+
+\section{Introduction}
+% TODO: motivate the cache-thrashing / OOM bottleneck (see README.md \S Motivation)
+% and position relative to PyNNDescent, Annoy, HNSW.
+
+\section{Related Work}
+% TODO: SciPy.sparse.csr_matrix / AnnData memory structures;
+% approximate k-NN literature (PyNNDescent, Annoy, HNSW).
+
+\section{Methods}
+
+\subsection{Block\_CSR Data Structure}
+% TODO: formal layout spec — alignas(64) value/index arrays, row_ptr semantics,
+% relationship to scipy.sparse.csr_matrix. See include/matrix/block_csr.hpp.
+
+\subsection{SIMD Sparse Dot Product and Cosine Similarity}
+% TODO: merge-join sparse dot product complexity analysis; AVX2/AVX-512 paths.
+% See include/matrix/simd_math.hpp.
+
+\subsection{k-NN Graph Construction}
+% TODO: brute-force baseline (include/matrix/knn_graph.hpp) and any
+% approximate-index extension.
+
+\subsection{Zero-Copy Python Interoperability}
+% TODO: pybind11::array_t buffer-protocol wrapping, capsule-based lifetime
+% management (src/python_bindings.cpp).
+
+\section{Benchmarking Protocol}
+% TODO: summarize docs/BENCHMARKS.md — datasets, metrics, baselines.
+
+\section{Results}
+% TODO: populate once tests/benchmark_1m_cells.py has been run on staged
+% 10x Genomics 1.3M Brain Cells data. Target: 20x speedup, 60% memory
+% reduction vs. scanpy.pp.neighbors() / scipy.sparse baselines.
+
+\begin{table}[h]
+\centering
+\caption{Placeholder benchmark results table.}
+\begin{tabular}{lccc}
+\toprule
+Backend & Wall-clock (s) & Peak RSS (GB) & Cache misses \\
+\midrule
+scanpy.pp.neighbors() & -- & -- & -- \\
+scipy.sparse (dense loop) & -- & -- & -- \\
+Block\_CSR (this work) & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+% TODO
+
+\section{Reproducibility}
+Source code, build instructions, and benchmark scripts are available at the
+project repository. % TODO: Compute Capsule / Binder link per \S1.4.
+
+\section*{Data Availability}
+% TODO: 10x Genomics dataset citations/DOIs.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

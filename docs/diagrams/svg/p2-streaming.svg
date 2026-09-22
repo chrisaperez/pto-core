@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="Inter, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="a-payload" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#37474F"/></marker>
+<marker id="a-control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565C0"/></marker>
+<marker id="a-error" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C62828"/></marker>
+<marker id="a-contract" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6A3FA0"/></marker>
+</defs>
+<rect width="1920" height="1080" fill="#FFFFFF"/>
+<text x="64" y="66" font-size="32" font-weight="700" fill="#0F2A43">fastq_stream moves buffer handles, not bytes</text>
+<text x="64" y="98" font-size="17" fill="#546E7A">3 + D + W threads joined by lock-free SPSC rings; a 256 KiB payload is copied at four points only.</text>
+<text x="64" y="1066" font-size="11" fill="#78909C">Sources: fastq_stream/src/pipeline.cpp:263-613, reader.cpp:32-380, buffer.hpp, lockfree_queue.hpp (commit 0ba20d1); thread math checked at 14 configurations</text>
+<rect x="64" y="136" width="232" height="200" rx="8" fill="#FFF4DB" stroke="#B7791F" stroke-width="1.5"/>
+<text x="76" y="158" font-size="16" font-weight="700" fill="#6B4A0E" text-anchor="start">SOURCE</text>
+<text x="76" y="179" font-size="13" fill="#6B4A0E" text-anchor="start">path | - | FIFO</text>
+<text x="76" y="196" font-size="13" fill="#6B4A0E" text-anchor="start">BAM/CRAM/SAM by content</text>
+<text x="76" y="213" font-size="13" fill="#6B4A0E" text-anchor="start">(regular files only)</text>
+<text x="76" y="230" font-size="13" fill="#6B4A0E" text-anchor="start">framing: 1f 8b + BC = BGZF</text>
+<text x="76" y="247" font-size="13" fill="#6B4A0E" text-anchor="start">1f 8b alone = gzip; else raw</text>
+<rect x="336" y="136" width="360" height="200" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="348" y="158" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">READER  1 thread</text>
+<text x="348" y="179" font-size="13" fill="#0D3B72" text-anchor="start">FdSource 1 MiB stage + fadvise</text>
+<text x="348" y="196" font-size="13" fill="#0D3B72" text-anchor="start">BGZF: &lt;= 4 whole members per Buffer (c1)</text>
+<text x="348" y="213" font-size="13" fill="#0D3B72" text-anchor="start">gzip: zlib inflate into the Buffer</text>
+<text x="348" y="230" font-size="13" fill="#0D3B72" text-anchor="start">raw: memcpy stage -&gt; Buffer (c1)</text>
+<text x="348" y="247" font-size="13" fill="#0D3B72" text-anchor="start">BAM: htslib decode pool, FASTQ text</text>
+<text x="348" y="264" font-size="13" fill="#0D3B72" text-anchor="start">EOF: BGZF must end in its 28 B block</text>
+<rect x="736" y="136" width="200" height="200" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="746" y1="136" x2="746" y2="336" stroke="#00796B"/>
+<line x1="926" y1="136" x2="926" y2="336" stroke="#00796B"/>
+<text x="758" y="158" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">lane x D</text>
+<text x="758" y="179" font-size="13" fill="#004D40" text-anchor="start">SpscRing&lt;Buffer,16&gt;</text>
+<text x="758" y="196" font-size="13" fill="#004D40" text-anchor="start">15 usable slots</text>
+<text x="758" y="213" font-size="13" fill="#004D40" text-anchor="start">closed flag</text>
+<text x="758" y="230" font-size="13" fill="#004D40" text-anchor="start">BGZF only</text>
+<rect x="976" y="136" width="320" height="200" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="988" y="158" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">INFLATERS  D threads</text>
+<text x="988" y="179" font-size="13" fill="#0D3B72" text-anchor="start">libdeflate, 1 decompressor each</text>
+<text x="988" y="196" font-size="13" fill="#0D3B72" text-anchor="start">4 members -&gt; one 256 KiB Buffer</text>
+<text x="988" y="213" font-size="13" fill="#0D3B72" text-anchor="start">compressed Buffer -&gt; in_pool</text>
+<text x="988" y="230" font-size="13" fill="#0D3B72" text-anchor="start">D = max(1, spare/3)</text>
+<rect x="1336" y="136" width="200" height="200" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1346" y1="136" x2="1346" y2="336" stroke="#00796B"/>
+<line x1="1526" y1="136" x2="1526" y2="336" stroke="#00796B"/>
+<text x="1358" y="158" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">lane x D</text>
+<text x="1358" y="179" font-size="13" fill="#004D40" text-anchor="start">pop order = push order</text>
+<text x="1358" y="196" font-size="13" fill="#004D40" text-anchor="start">chunk k on lane k mod D</text>
+<rect x="1526" y="400" width="330" height="200" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1538" y="422" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">ASSEMBLER  1 thread</text>
+<text x="1538" y="443" font-size="13" fill="#0D3B72" text-anchor="start">pop lane[k mod D] or the direct lane</text>
+<text x="1538" y="460" font-size="13" fill="#0D3B72" text-anchor="start">carry spliced into 64 KiB prefix (c2)</text>
+<text x="1538" y="477" font-size="13" fill="#0D3B72" text-anchor="start">cut at the 4th newline (memchr)</text>
+<text x="1538" y="494" font-size="13" fill="#0D3B72" text-anchor="start">whole records -&gt; lane j mod W</text>
+<text x="1538" y="511" font-size="13" fill="#0D3B72" text-anchor="start">partial tail -&gt; carry (max 64 KiB)</text>
+<rect x="1290" y="400" width="200" height="200" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1300" y1="400" x2="1300" y2="600" stroke="#00796B"/>
+<line x1="1480" y1="400" x2="1480" y2="600" stroke="#00796B"/>
+<text x="1312" y="422" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">lane x W</text>
+<text x="1312" y="443" font-size="13" fill="#004D40" text-anchor="start">input of worker i</text>
+<text x="1312" y="460" font-size="13" fill="#004D40" text-anchor="start">chunk j on lane j mod W</text>
+<rect x="890" y="400" width="360" height="200" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="902" y="422" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">WORKERS  W threads</text>
+<text x="902" y="443" font-size="13" fill="#0D3B72" text-anchor="start">out Buffer from out_pool (320 KiB)</text>
+<text x="902" y="460" font-size="13" fill="#0D3B72" text-anchor="start">checks -&gt; Phred+64 rebase -&gt; QC on RAW</text>
+<text x="902" y="477" font-size="13" fill="#0D3B72" text-anchor="start">trim -&gt; adapters -&gt; filters</text>
+<text x="902" y="494" font-size="13" fill="#0D3B72" text-anchor="start">survivors memcpy&#x27;d into out (c3)</text>
+<text x="902" y="511" font-size="13" fill="#0D3B72" text-anchor="start">SIMD: runtime ISA kernels</text>
+<text x="902" y="528" font-size="13" fill="#0D3B72" text-anchor="start">always ONE out Buffer per chunk</text>
+<rect x="650" y="400" width="200" height="200" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="660" y1="400" x2="660" y2="600" stroke="#00796B"/>
+<line x1="840" y1="400" x2="840" y2="600" stroke="#00796B"/>
+<text x="672" y="422" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">lane x W</text>
+<text x="672" y="443" font-size="13" fill="#004D40" text-anchor="start">output of worker i</text>
+<text x="672" y="460" font-size="13" fill="#004D40" text-anchor="start">one Buffer per input</text>
+<text x="672" y="477" font-size="13" fill="#004D40" text-anchor="start">chunk</text>
+<rect x="364" y="400" width="250" height="200" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="376" y="422" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">WRITER  1 thread</text>
+<text x="376" y="443" font-size="13" fill="#0D3B72" text-anchor="start">pop lane k mod W in order</text>
+<text x="376" y="460" font-size="13" fill="#0D3B72" text-anchor="start">write(2), EINTR retried (c4)</text>
+<text x="376" y="477" font-size="13" fill="#0D3B72" text-anchor="start">SIGPIPE ignored; close checked</text>
+<rect x="64" y="400" width="260" height="200" rx="8" fill="#FFF4DB" stroke="#B7791F" stroke-width="1.5"/>
+<text x="76" y="422" font-size="16" font-weight="700" fill="#6B4A0E" text-anchor="start">SINK</text>
+<text x="76" y="443" font-size="13" fill="#6B4A0E" text-anchor="start">stdout | file | FIFO</text>
+<text x="76" y="460" font-size="13" fill="#6B4A0E" text-anchor="start">--mkfifo: open blocks</text>
+<text x="76" y="477" font-size="13" fill="#6B4A0E" text-anchor="start">until a reader attaches</text>
+<text x="76" y="494" font-size="13" fill="#6B4A0E" text-anchor="start">refused: -i X -o X</text>
+<rect x="64" y="632" width="880" height="184" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="78" y="654" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">BUFFER ANATOMY   buffer.hpp:28-35</text>
+<rect x="976" y="632" width="880" height="184" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="990" y="654" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">SPSC RING   lockfree_queue.hpp:47</text>
+<rect x="64" y="832" width="880" height="184" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="78" y="854" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">THE FOUR COPY POINTS</text>
+<rect x="976" y="832" width="880" height="184" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="990" y="854" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">CONTROL AND BOUNDS</text>
+<rect x="88" y="676" width="280" height="96" rx="8" fill="#FFF4DB" stroke="#B7791F" stroke-width="1.5"/>
+<text x="100" y="698" font-size="16" font-weight="700" fill="#6B4A0E" text-anchor="start">kPrefix 64 KiB</text>
+<text x="100" y="719" font-size="13" fill="#6B4A0E" text-anchor="start">headroom in front of data()</text>
+<text x="100" y="736" font-size="13" fill="#6B4A0E" text-anchor="start">extend_front() splices the carry</text>
+<rect x="368" y="676" width="552" height="96" rx="8" fill="#FFF4DB" stroke="#B7791F" stroke-width="1.5"/>
+<text x="380" y="698" font-size="16" font-weight="700" fill="#6B4A0E" text-anchor="start">payload 256 KiB (in_pool)   320 KiB (out_pool)</text>
+<text x="380" y="719" font-size="13" fill="#6B4A0E" text-anchor="start">data() ... size() ... capacity()</text>
+<text x="380" y="736" font-size="13" fill="#6B4A0E" text-anchor="start">64 B aligned by aligned_alloc</text>
+<text x="90" y="794" font-size="13" fill="#37474F">handle = {pool*, base*, cap, size, front_} + seq (written, never read); free list under std::mutex</text>
+<rect x="1000" y="676" width="160" height="96" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1010" y1="676" x2="1010" y2="772" stroke="#00796B"/>
+<line x1="1150" y1="676" x2="1150" y2="772" stroke="#00796B"/>
+<text x="1022" y="698" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">head_</text>
+<text x="1022" y="719" font-size="13" fill="#004D40" text-anchor="start">consumer</text>
+<rect x="1172" y="676" width="160" height="96" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1182" y1="676" x2="1182" y2="772" stroke="#00796B"/>
+<line x1="1322" y1="676" x2="1322" y2="772" stroke="#00796B"/>
+<text x="1194" y="698" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">cached_tail_</text>
+<text x="1194" y="719" font-size="13" fill="#004D40" text-anchor="start">consumer-private</text>
+<rect x="1344" y="676" width="160" height="96" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1354" y1="676" x2="1354" y2="772" stroke="#00796B"/>
+<line x1="1494" y1="676" x2="1494" y2="772" stroke="#00796B"/>
+<text x="1366" y="698" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">tail_</text>
+<text x="1366" y="719" font-size="13" fill="#004D40" text-anchor="start">producer</text>
+<rect x="1516" y="676" width="160" height="96" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1526" y1="676" x2="1526" y2="772" stroke="#00796B"/>
+<line x1="1666" y1="676" x2="1666" y2="772" stroke="#00796B"/>
+<text x="1538" y="698" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">cached_head_</text>
+<text x="1538" y="719" font-size="13" fill="#004D40" text-anchor="start">producer-private</text>
+<rect x="1688" y="676" width="160" height="96" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1698" y1="676" x2="1698" y2="772" stroke="#00796B"/>
+<line x1="1838" y1="676" x2="1838" y2="772" stroke="#00796B"/>
+<text x="1710" y="698" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">slots_[16]</text>
+<text x="1710" y="719" font-size="13" fill="#004D40" text-anchor="start">Buffer handles</text>
+<text x="1710" y="736" font-size="13" fill="#004D40" text-anchor="start">15 usable</text>
+<text x="1002" y="794" font-size="13" fill="#37474F">each member alignas(128), so producer and consumer share no line; kCacheLine = 128 B on arm64 and x86-64</text>
+<rect x="88" y="876" width="196" height="124" rx="8" fill="#FFFBEA" stroke="#E0B84C" stroke-width="1.5"/>
+<text x="100" y="898" font-size="16" font-weight="700" fill="#5B4300" text-anchor="start">(c1) stage -&gt;</text>
+<text x="100" y="919" font-size="16" font-weight="700" fill="#5B4300" text-anchor="start">Buffer</text>
+<text x="100" y="940" font-size="13" fill="#5B4300" text-anchor="start">raw and BGZF compressed</text>
+<text x="100" y="957" font-size="13" fill="#5B4300" text-anchor="start">batch; gzip inflates in</text>
+<text x="100" y="974" font-size="13" fill="#5B4300" text-anchor="start">place</text>
+<rect x="300" y="876" width="196" height="124" rx="8" fill="#FFFBEA" stroke="#E0B84C" stroke-width="1.5"/>
+<text x="312" y="898" font-size="16" font-weight="700" fill="#5B4300" text-anchor="start">(c2) carry splice</text>
+<text x="312" y="919" font-size="13" fill="#5B4300" text-anchor="start">only the straddling</text>
+<text x="312" y="936" font-size="13" fill="#5B4300" text-anchor="start">partial record, at most</text>
+<text x="312" y="953" font-size="13" fill="#5B4300" text-anchor="start">64 KiB</text>
+<rect x="512" y="876" width="196" height="124" rx="8" fill="#FFFBEA" stroke="#E0B84C" stroke-width="1.5"/>
+<text x="524" y="898" font-size="16" font-weight="700" fill="#5B4300" text-anchor="start">(c3) serialise</text>
+<text x="524" y="919" font-size="13" fill="#5B4300" text-anchor="start">worker writes surviving</text>
+<text x="524" y="936" font-size="13" fill="#5B4300" text-anchor="start">records into the out</text>
+<text x="524" y="953" font-size="13" fill="#5B4300" text-anchor="start">Buffer</text>
+<rect x="724" y="876" width="196" height="124" rx="8" fill="#FFFBEA" stroke="#E0B84C" stroke-width="1.5"/>
+<text x="736" y="898" font-size="16" font-weight="700" fill="#5B4300" text-anchor="start">(c4) write(2)</text>
+<text x="736" y="919" font-size="13" fill="#5B4300" text-anchor="start">the kernel&#x27;s copy to</text>
+<text x="736" y="936" font-size="13" fill="#5B4300" text-anchor="start">file, FIFO or stdout</text>
+<rect x="1000" y="876" width="272" height="124" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1010" y1="876" x2="1010" y2="1000" stroke="#00796B"/>
+<line x1="1262" y1="876" x2="1262" y2="1000" stroke="#00796B"/>
+<text x="1022" y="898" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">ErrorGate</text>
+<text x="1022" y="919" font-size="13" fill="#004D40" text-anchor="start">first error wins</text>
+<text x="1022" y="936" font-size="13" fill="#004D40" text-anchor="start">abort flag polled in every ring</text>
+<text x="1022" y="953" font-size="13" fill="#004D40" text-anchor="start">wait</text>
+<text x="1022" y="970" font-size="13" fill="#004D40" text-anchor="start">then join, then throw</text>
+<rect x="1284" y="876" width="272" height="124" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1294" y1="876" x2="1294" y2="1000" stroke="#00796B"/>
+<line x1="1546" y1="876" x2="1546" y2="1000" stroke="#00796B"/>
+<text x="1306" y="898" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">Termination</text>
+<text x="1306" y="919" font-size="13" fill="#004D40" text-anchor="start">producer release-stores closed</text>
+<text x="1306" y="936" font-size="13" fill="#004D40" text-anchor="start">consumer exits on empty AND closed</text>
+<rect x="1568" y="876" width="272" height="124" rx="8" fill="#FFF4DB" stroke="#B7791F" stroke-width="1.5"/>
+<text x="1580" y="898" font-size="16" font-weight="700" fill="#6B4A0E" text-anchor="start">Memory bound</text>
+<text x="1580" y="919" font-size="13" fill="#6B4A0E" text-anchor="start">(lanes x 15 + in-flight) x &lt;= 384</text>
+<text x="1580" y="936" font-size="13" fill="#6B4A0E" text-anchor="start">KiB</text>
+<text x="1580" y="953" font-size="13" fill="#6B4A0E" text-anchor="start">measured 47 blocks = 15.8 MB, 12.8</text>
+<text x="1580" y="970" font-size="13" fill="#6B4A0E" text-anchor="start">MB FASTQ, -t 6</text>
+<path d="M296,236 L336,236" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M696,236 L736,236" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M936,236 L976,236" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1296,236 L1336,236" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1536,236 L1691,236 L1691,400" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M516,336 L516,376 L1608,376 L1608,400" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<text x="1062" y="371" font-size="12" fill="#37474F" text-anchor="middle" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">direct lane (gzip, raw, BAM)</text>
+<path d="M1526,500 L1490,500" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1290,500 L1250,500" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M890,500 L850,500" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M650,500 L614,500" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M364,500 L324,500" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+</svg>

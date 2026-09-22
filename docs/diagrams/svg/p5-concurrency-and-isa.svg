@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="Inter, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="a-payload" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#37474F"/></marker>
+<marker id="a-control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565C0"/></marker>
+<marker id="a-error" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C62828"/></marker>
+<marker id="a-contract" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6A3FA0"/></marker>
+</defs>
+<rect width="1920" height="1080" fill="#FFFFFF"/>
+<text x="64" y="66" font-size="32" font-weight="700" fill="#0F2A43">Determinism is tested, not assumed: threads, ISA and memory</text>
+<text x="64" y="98" font-size="17" fill="#546E7A">(ran) = executed in this review on an arm64 host; (static) = read from source or CI configuration only.</text>
+<text x="64" y="1066" font-size="11" fill="#78909C">Sources: simd.hpp:4-568, poisson_model.hpp:1715-1889, simd_math.hpp:704-770, knn_graph.hpp:131-427, signal_calc.cpp, frip.hpp, ci.yml (commit 0ba20d1)</text>
+<rect x="64" y="124" width="1792" height="224" fill="#FFFFFF" stroke="#B0BEC5"/>
+<rect x="64" y="124" width="1792" height="28" fill="#ECEFF1" stroke="#B0BEC5"/>
+<text x="70" y="144" font-size="12" font-weight="700" fill="#263238">engine</text>
+<text x="240" y="144" font-size="12" font-weight="700" fill="#263238">threads and primitive</text>
+<line x1="234" y1="124" x2="234" y2="348" stroke="#CFD8DC"/>
+<text x="760" y="144" font-size="12" font-weight="700" fill="#263238">shared state and synchronisation</text>
+<line x1="754" y1="124" x2="754" y2="348" stroke="#CFD8DC"/>
+<text x="1320" y="144" font-size="12" font-weight="700" fill="#263238">ordering and determinism evidence</text>
+<line x1="1314" y1="124" x2="1314" y2="348" stroke="#CFD8DC"/>
+<line x1="64" y1="152" x2="1856" y2="152" stroke="#CFD8DC"/>
+<text x="70" y="168" font-size="12" fill="#263238">fastq_stream</text>
+<text x="240" y="168" font-size="12" fill="#263238">3+D+W std::thread: reader, D inflaters, assembler, W workers, writer; BAM</text>
+<text x="240" y="184" font-size="12" fill="#263238">adds an htslib decode pool</text>
+<text x="760" y="168" font-size="12" fill="#263238">SPSC rings with acquire/release atomics, no CAS; buffer pools under std::mutex;</text>
+<text x="760" y="184" font-size="12" fill="#263238">ErrorGate = mutex + abort atomic</text>
+<text x="1320" y="168" font-size="12" fill="#263238">lane order = stream order; raw, gzip, BGZF and NEON vs scalar give 1</text>
+<text x="1320" y="184" font-size="12" fill="#263238">identical result (ran)</text>
+<line x1="64" y1="194" x2="1856" y2="194" stroke="#CFD8DC"/>
+<text x="70" y="210" font-size="12" fill="#263238">genomic_toolkit</text>
+<text x="240" y="210" font-size="12" fill="#263238">1 streaming thread; OpenMP parallel for in FRiP when the batch has &gt;= 512</text>
+<text x="240" y="226" font-size="12" fill="#263238">fragments, schedule(static)</text>
+<text x="760" y="210" font-size="12" fill="#263238">PeakSet is immutable; per-thread OverlapCursor; integer reductions; checked_add</text>
+<text x="760" y="226" font-size="12" fill="#263238">outside the parallel region</text>
+<text x="1320" y="210" font-size="12" fill="#263238">identical JSON at OMP_NUM_THREADS=1 and 8; region tiles sum to the whole</text>
+<text x="1320" y="226" font-size="12" fill="#263238">file (ran)</text>
+<line x1="64" y1="236" x2="1856" y2="236" stroke="#CFD8DC"/>
+<text x="70" y="252" font-size="12" fill="#263238">cuttag_profiler</text>
+<text x="240" y="252" font-size="12" fill="#263238">profile: N std::thread workers, block-partitioned rows, then min(N,</text>
+<text x="240" y="268" font-size="12" fill="#263238">rows/64, memory) reducers. serve: httplib pool of 16</text>
+<text x="760" y="252" font-size="12" fill="#263238">one leased htsFile per worker (mutex-guarded list); index and header shared</text>
+<text x="760" y="268" font-size="12" fill="#263238">read-only; alias lookup under a mutex; reader map and MatrixCache under mutexes</text>
+<text x="1320" y="252" font-size="12" fill="#263238">profile: matrix and profile byte-identical at 1 and 8 threads (sha256, ran);</text>
+<text x="1320" y="268" font-size="12" fill="#263238">serve gates probed live (ran)</text>
+<line x1="64" y1="278" x2="1856" y2="278" stroke="#CFD8DC"/>
+<text x="70" y="294" font-size="12" fill="#263238">pto-peaks</text>
+<text x="240" y="294" font-size="12" fill="#263238">1 thread; SIMD lanes only inside the Poisson evaluation</text>
+<text x="760" y="294" font-size="12" fill="#263238">nothing shared</text>
+<text x="1320" y="294" font-size="12" fill="#263238">scalar and NEON outputs byte-identical (ran)</text>
+<line x1="64" y1="304" x2="1856" y2="304" stroke="#CFD8DC"/>
+<text x="70" y="320" font-size="12" fill="#263238">scrna_matrix</text>
+<text x="240" y="320" font-size="12" fill="#263238">OpenMP: norms static; tile pairs in circle-method rounds (dynamic); HNSW</text>
+<text x="240" y="336" font-size="12" fill="#263238">build and query in parallel</text>
+<text x="760" y="320" font-size="12" fill="#263238">one heap per row; a round&#x27;s tile pairs are disjoint, so no locks; write_mutex_</text>
+<text x="760" y="336" font-size="12" fill="#263238">guards index mutation</text>
+<text x="1320" y="320" font-size="12" fill="#263238">brute force deterministic (tie-break by row); HNSW approximate and not</text>
+<text x="1320" y="336" font-size="12" fill="#263238">reproducible when threaded (static, not built here)</text>
+<rect x="64" y="372" width="1240" height="198" fill="#FFFFFF" stroke="#B0BEC5"/>
+<rect x="64" y="372" width="1240" height="28" fill="#ECEFF1" stroke="#B0BEC5"/>
+<text x="70" y="392" font-size="12" font-weight="700" fill="#263238">engine</text>
+<text x="240" y="392" font-size="12" font-weight="700" fill="#263238">kernels</text>
+<line x1="234" y1="372" x2="234" y2="570" stroke="#CFD8DC"/>
+<text x="640" y="392" font-size="12" font-weight="700" fill="#263238">ISAs</text>
+<line x1="634" y1="372" x2="634" y2="570" stroke="#CFD8DC"/>
+<text x="940" y="392" font-size="12" font-weight="700" fill="#263238">override and evidence</text>
+<line x1="934" y1="372" x2="934" y2="570" stroke="#CFD8DC"/>
+<line x1="64" y1="400" x2="1304" y2="400" stroke="#CFD8DC"/>
+<text x="70" y="416" font-size="12" fill="#263238">fastq_stream</text>
+<text x="240" y="416" font-size="12" fill="#263238">all_printable, count_ge, add_widen_u8_to_u32,</text>
+<text x="240" y="432" font-size="12" fill="#263238">mismatches, find_seed4 (sum_u8: tests only)</text>
+<text x="640" y="416" font-size="12" fill="#263238">scalar, NEON, AVX2, AVX-512BW (opt-in</text>
+<text x="640" y="432" font-size="12" fill="#263238">FQ_ENABLE_AVX512)</text>
+<text x="940" y="416" font-size="12" fill="#263238">FQ_FORCE_ISA. ran: NEON by default, scalar on</text>
+<text x="940" y="432" font-size="12" fill="#263238">request, avx2 ignored on arm64</text>
+<line x1="64" y1="442" x2="1304" y2="442" stroke="#CFD8DC"/>
+<text x="70" y="458" font-size="12" fill="#263238">pto-peaks</text>
+<text x="240" y="458" font-size="12" fill="#263238">Poisson -log10 p in batches of 256 bases; lanes 8/4/2/1</text>
+<text x="240" y="474" font-size="12" fill="#263238">doubles</text>
+<text x="640" y="458" font-size="12" fill="#263238">AVX-512F+DQ (opt-in), AVX2+FMA, NEON,</text>
+<text x="640" y="474" font-size="12" fill="#263238">scalar</text>
+<text x="940" y="458" font-size="12" fill="#263238">PTO_PEAKS_FORCE_ISA. ran: scalar output == NEON</text>
+<text x="940" y="474" font-size="12" fill="#263238">output, byte for byte</text>
+<line x1="64" y1="484" x2="1304" y2="484" stroke="#CFD8DC"/>
+<text x="70" y="500" font-size="12" fill="#263238">scrna_matrix</text>
+<text x="240" y="500" font-size="12" fill="#263238">gather_dot, dense_dot; HNSW distance via</text>
+<text x="240" y="516" font-size="12" fill="#263238">ScrnaCosineSpace; sparse merge-join is scalar</text>
+<text x="640" y="500" font-size="12" fill="#263238">AVX-512F+BW (opt-in), AVX2+FMA, NEON,</text>
+<text x="640" y="516" font-size="12" fill="#263238">scalar</text>
+<text x="940" y="500" font-size="12" fill="#263238">SCRNA_FORCE_ISA; Python simd_isa(). static + CI</text>
+<text x="940" y="516" font-size="12" fill="#263238">sweep only</text>
+<line x1="64" y1="526" x2="1304" y2="526" stroke="#CFD8DC"/>
+<text x="70" y="542" font-size="12" fill="#263238">genomic_toolkit</text>
+<text x="70" y="558" font-size="12" fill="#263238">cuttag_profiler</text>
+<text x="240" y="542" font-size="12" fill="#263238">none: no intrinsics or CPU probes in first-party</text>
+<text x="240" y="558" font-size="12" fill="#263238">sources (grep)</text>
+<text x="640" y="542" font-size="12" fill="#263238">compiler auto-vectorisation only</text>
+<text x="940" y="542" font-size="12" fill="#263238">-march=native is OFF by default in both</text>
+<rect x="1336" y="372" width="520" height="268" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="1350" y="394" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">ONE DISPATCH MECHANISM</text>
+<rect x="64" y="664" width="1792" height="186" fill="#FFFFFF" stroke="#B0BEC5"/>
+<rect x="64" y="664" width="1792" height="28" fill="#ECEFF1" stroke="#B0BEC5"/>
+<text x="70" y="684" font-size="12" font-weight="700" fill="#263238">engine</text>
+<text x="240" y="684" font-size="12" font-weight="700" fill="#263238">resident bound</text>
+<line x1="234" y1="664" x2="234" y2="850" stroke="#CFD8DC"/>
+<text x="1040" y="684" font-size="12" font-weight="700" fill="#263238">layout and I/O primitive</text>
+<line x1="1034" y1="664" x2="1034" y2="850" stroke="#CFD8DC"/>
+<line x1="64" y1="692" x2="1856" y2="692" stroke="#CFD8DC"/>
+<text x="70" y="708" font-size="12" fill="#263238">fastq_stream</text>
+<text x="240" y="708" font-size="12" fill="#263238">(lanes x 15 slots + in-flight) x &lt;= 384 KiB; not a function of input size (47 blocks = 15.8 MB, ran)</text>
+<text x="1040" y="708" font-size="12" fill="#263238">Buffer 64 B aligned; ring cursors 128 B apart; read(2) into a 1 MiB stage with posix_fadvise(SEQUENTIAL)</text>
+<line x1="64" y1="718" x2="1856" y2="718" stroke="#CFD8DC"/>
+<text x="70" y="734" font-size="12" fill="#263238">genomic_toolkit</text>
+<text x="240" y="734" font-size="12" fill="#263238">histogram 2,001 counters; dup marker O(deepest pile-up) or O(distinct) with --unsorted; batch 64 KiB</text>
+<text x="1040" y="734" font-size="12" fill="#263238">Fragment 16 B; alignas(64) arrays; LineReader 1 MiB growing to a 64 MiB cap; htslib for BAM/CRAM</text>
+<line x1="64" y1="744" x2="1856" y2="744" stroke="#CFD8DC"/>
+<text x="70" y="760" font-size="12" fill="#263238">cuttag_profiler</text>
+<text x="240" y="760" font-size="12" fill="#263238">rows x bins x 8 B allocated up front; one tally per worker; matrix cache 512 MiB / 4 entries (server)</text>
+<text x="1040" y="760" font-size="12" fill="#263238">per-reducer aligned accumulators; indexed queries through htslib; server parses regions from the fd</text>
+<line x1="64" y1="770" x2="1856" y2="770" stroke="#CFD8DC"/>
+<text x="70" y="786" font-size="12" fill="#263238">pto-peaks</text>
+<text x="240" y="786" font-size="12" fill="#263238">2 rings x 128 KiB; candidates 32 B each + ~12 B BH scratch; not a function of contig length</text>
+<text x="1040" y="786" font-size="12" fill="#263238">4 MiB block reads, 1 MiB line cap; BGZF decoded natively in place, no per-record allocation</text>
+<line x1="64" y1="796" x2="1856" y2="796" stroke="#CFD8DC"/>
+<text x="70" y="812" font-size="12" fill="#263238">scrna_matrix</text>
+<text x="240" y="812" font-size="12" fill="#263238">CSR + KnnGraph n*k*8 B; per-row heaps O(n*k); HNSW ~ n*dim*4 B + links (hnsw_index_bytes guards it)</text>
+<text x="1040" y="812" font-size="12" fill="#263238">AlignedAllocator 64 B; NumPy buffers adopted in place if aligned and immutable; no file I/O</text>
+<line x1="64" y1="822" x2="1856" y2="822" stroke="#CFD8DC"/>
+<text x="70" y="838" font-size="12" fill="#263238">all engines</text>
+<text x="240" y="838" font-size="12" fill="#263238">memory-mapping: NONE. No mmap, madvise or MAP_* in first-party code (grep)</text>
+<text x="1040" y="838" font-size="12" fill="#263238">the only page-cache hint is one posix_fadvise(SEQUENTIAL), fastq_stream reader.cpp:76</text>
+<rect x="1360" y="420" width="472" height="44" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1370" y1="420" x2="1370" y2="464" stroke="#00796B"/>
+<line x1="1822" y1="420" x2="1822" y2="464" stroke="#00796B"/>
+<text x="1382" y="442" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">1  FORCE_ISA env, if that ISA is compiled in</text>
+<rect x="1360" y="476" width="472" height="44" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1370" y1="476" x2="1370" y2="520" stroke="#00796B"/>
+<line x1="1822" y1="476" x2="1822" y2="520" stroke="#00796B"/>
+<text x="1382" y="498" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">2  __builtin_cpu_supports (also OS save)</text>
+<rect x="1360" y="532" width="472" height="44" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1370" y1="532" x2="1370" y2="576" stroke="#00796B"/>
+<line x1="1822" y1="532" x2="1822" y2="576" stroke="#00796B"/>
+<text x="1382" y="554" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">3  NEON on AArch64: no probe</text>
+<rect x="1360" y="588" width="472" height="44" rx="3" fill="#DDF5F1" stroke="#00796B" stroke-width="1.5"/>
+<line x1="1370" y1="588" x2="1370" y2="632" stroke="#00796B"/>
+<line x1="1822" y1="588" x2="1822" y2="632" stroke="#00796B"/>
+<text x="1382" y="610" font-size="16" font-weight="700" fill="#004D40" text-anchor="start">4  scalar reference</text>
+<path d="M1596,464 L1596,476" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1596,520 L1596,532" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1596,576 L1596,588" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+</svg>

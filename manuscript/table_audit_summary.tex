@@ -1,0 +1,43 @@
+% table_audit_summary.tex
+% Source: pto-core/docs/REVIEW_2026-08-15.md (three rounds), TORTURE_2026-08-17.md,
+% TORTURE_2026-09-10.md (two passes), AUDIT_2026-09-11_fastq_stream.md,
+% AUDIT_2026-09-11_genomic_toolkit.md, AUDIT_2026-09-11_cuttag_profiler.md,
+% AUDIT_2026-09-11_scrna_matrix.md.
+% Counts are confirmed-and-fixed defects only: a finding is counted here only
+% if it was reproduced against a pre-fix binary or header before being
+% patched, per every document's own stated convention. Excluded: the one
+% false positive (T6, TORTURE_2026-08-17.md, a TSan report traced to an
+% uninstrumented libomp).
+\begin{table}[t]
+\centering
+\caption{Confirmed defects found and fixed across seven adversarial passes,
+2026-08-15 to 2026-09-11, by module. ``High/Crit.'' is the subset rated High
+or Critical severity in the source document.}
+\label{tab:audit-summary}
+\small
+\begin{tabular}{lrr}
+\toprule
+Module & Confirmed defects & High/Crit. \\
+\midrule
+\texttt{fastq\_stream} & \NumDefectsFastqTotal{} & \NumDefectsFastqHighCrit{} \\
+\texttt{genomic\_toolkit} & \NumDefectsGtkTotal{} & \NumDefectsGtkHighCrit{} \\
+\texttt{cuttag\_profiler} & \NumDefectsCuttagTotal{} & \NumDefectsCuttagHighCrit{} \\
+\texttt{scrna\_matrix} & \NumDefectsScrnaTotal{} & \NumDefectsScrnaHighCrit{} \\
+\texttt{peaks} (\texttt{pto-peaks}) & \NumDefectsPeaksTotal{} & \NumDefectsPeaksHighCrit{} \\
+\midrule
+Total & \NumAuditTotal{} & 24 \\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+\raggedright\footnotesize
+Every confirmed defect carries a regression test added in the same commit
+that fixed it. Verification after each pass included, per module: a
+sanitizer-clean ASan+UBSan run under \texttt{-fno-sanitize-recover=all}, the
+pre-existing suite re-run to confirm no regression, and where the defect was
+concurrency-related, a clean ThreadSanitizer run. \texttt{fastq\_stream}'s
+2026-09-11 pass additionally drove a \FqFuzzMutants-mutant corpus (bit
+flips, byte replacement, deletion, insertion, duplication and truncation
+across raw, gzip and BGZF framing) through the sanitizer build at 1, 3 and 8
+threads with no crash, hang or sanitizer report.
+\end{table}

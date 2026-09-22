@@ -1,0 +1,10 @@
+build*/
+data/
+bench_out/
+benchmark_results.*
+*.o
+*.a
+*.aux
+*.log
+*.out
+*.pdf

@@ -1,0 +1,59 @@
+# Repository hygiene, not correctness -- these hooks catch trailing
+# whitespace, missing newlines, and formatting drift. They do not replace
+# `ctest`, the sanitizer builds, or `pytest`; see CONTRIBUTING.md for those.
+#
+# Install once per clone with:
+#   pip install pre-commit && pre-commit install
+#
+# Run against the whole tree (not just staged files) with:
+#   pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: &third_party '^modules/[^/]+/third_party/'
+      - id: end-of-file-fixer
+        exclude: *third_party
+      - id: check-yaml
+      - id: check-added-large-files
+        # demo.bam (~8.6 MB) is a deliberate, already-reviewed checked-in
+        # fixture -- see modules/cuttag_profiler/.gitignore's own comment.
+        # This threshold is about catching an ACCIDENTAL large add (a stray
+        # build artifact, a BAM someone forgot to .gitignore), not that file.
+        args: ['--maxkb=1024']
+        exclude: '^modules/cuttag_profiler/data/'
+
+  # Python: packaging/pto/ (the pto-core CLI and API), scripts/, tests/validation/.
+  # Notebooks are excluded: ruff lints them by default, and E402 (import not
+  # at the top) is a false positive against normal notebook style, where a
+  # setup cell before the imports cell is the norm, not a hygiene lapse.
+  # `types: [python]` on ruff-format specifically (overriding its default,
+  # which also reaches into fenced ```python blocks in Markdown) because
+  # README.md and packaging/README.md carry Python examples with deliberate,
+  # non-default spacing for visual alignment -- confirmed with
+  # `ruff format --diff packaging/README.md` while writing this file.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff
+        args: ['--fix']
+        exclude: &py_exclude '^modules/[^/]+/third_party/|\.ipynb$'
+      - id: ruff-format
+        types: [python]
+        exclude: *py_exclude
+
+  # C++: each module carries its own modules/<name>/.clang-format, inheriting
+  # shared conservative settings from the root .clang-format (see that
+  # file's header comment) and overriding only indent width -- the five
+  # modules were developed independently and were never on one convention.
+  # Vendored code is excluded entirely: it isn't ours to reformat, and
+  # clang-format has no per-directory "leave alone", only per-directory
+  # style, so exclusion belongs here rather than in a third .clang-format
+  # pretending to have an opinion about code this project doesn't own.
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v23.1.1
+    hooks:
+      - id: clang-format
+        types_or: [c++, c]
+        exclude: *third_party

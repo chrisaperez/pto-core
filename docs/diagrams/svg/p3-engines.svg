@@ -1,0 +1,244 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="Inter, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="a-payload" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#37474F"/></marker>
+<marker id="a-control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565C0"/></marker>
+<marker id="a-error" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C62828"/></marker>
+<marker id="a-contract" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6A3FA0"/></marker>
+</defs>
+<rect width="1920" height="1080" fill="#FFFFFF"/>
+<text x="64" y="66" font-size="32" font-weight="700" fill="#0F2A43">Each engine is one pass: a control path and a core loop</text>
+<text x="64" y="98" font-size="17" fill="#546E7A">Top row of each panel is main(); the row below is the loop that touches every record or region.</text>
+<text x="64" y="1066" font-size="11" fill="#78909C">Sources: modules/*/src/main.cpp and the files named in each panel (commit 0ba20d1)</text>
+<rect x="64" y="124" width="880" height="436" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="78" y="146" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">1  fastq_stream   qc | trim   (main.cpp, pipeline.cpp)</text>
+<rect x="976" y="124" width="880" height="436" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="990" y="146" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">2  genomic_toolkit   sizes | markdup | frip</text>
+<rect x="64" y="580" width="880" height="436" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="78" y="602" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">3  cuttag_profiler   profile   (main.cpp, signal_calc.cpp, bam_reader.cpp)</text>
+<rect x="976" y="580" width="880" height="436" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="990" y="602" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">4  pto-peaks   (main.cpp, sliding_window / caller / poisson_model / bam_streamer .hpp)</text>
+<rect x="88" y="188" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="100" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">argv</text>
+<text x="100" y="231" font-size="13" fill="#0D3B72" text-anchor="start">-i -o -j -t</text>
+<text x="100" y="248" font-size="13" fill="#0D3B72" text-anchor="start">--qc-only ...</text>
+<rect x="258" y="188" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="270" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">validate</text>
+<text x="270" y="231" font-size="13" fill="#0D3B72" text-anchor="start">ranges, adapters;</text>
+<text x="270" y="248" font-size="13" fill="#0D3B72" text-anchor="start">usage error = rc</text>
+<text x="270" y="265" font-size="13" fill="#0D3B72" text-anchor="start">2</text>
+<rect x="428" y="188" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="440" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">probe</text>
+<text x="440" y="231" font-size="13" fill="#0D3B72" text-anchor="start">BAM/CRAM by</text>
+<text x="440" y="248" font-size="13" fill="#0D3B72" text-anchor="start">content</text>
+<text x="440" y="265" font-size="13" fill="#0D3B72" text-anchor="start">(regular files)</text>
+<rect x="598" y="188" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="610" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">run_pipeline</text>
+<text x="610" y="231" font-size="13" fill="#0D3B72" text-anchor="start">see page 2:</text>
+<text x="610" y="248" font-size="13" fill="#0D3B72" text-anchor="start">3 + D + W threads</text>
+<rect x="768" y="188" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="780" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">report + rc</text>
+<text x="780" y="231" font-size="13" fill="#0D3B72" text-anchor="start">text, JSON (-j)</text>
+<text x="780" y="248" font-size="13" fill="#0D3B72" text-anchor="start">rc 0 | 1 | 2</text>
+<rect x="88" y="344" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="100" y="366" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">checks</text>
+<text x="100" y="387" font-size="13" fill="#0D3B72" text-anchor="start">header, SEQ, QUAL</text>
+<text x="100" y="404" font-size="13" fill="#0D3B72" text-anchor="start">printable;</text>
+<text x="100" y="421" font-size="13" fill="#0D3B72" text-anchor="start">Phred+64 rebase</text>
+<rect x="258" y="344" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="270" y="366" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">QC on RAW</text>
+<text x="270" y="387" font-size="13" fill="#0D3B72" text-anchor="start">counts, Q20/Q30</text>
+<text x="270" y="404" font-size="13" fill="#0D3B72" text-anchor="start">GC, N, per cycle</text>
+<rect x="428" y="344" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="440" y="366" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">trim</text>
+<text x="440" y="387" font-size="13" fill="#0D3B72" text-anchor="start">front, tail,</text>
+<text x="440" y="404" font-size="13" fill="#0D3B72" text-anchor="start">sliding window</text>
+<rect x="598" y="344" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="610" y="366" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">adapters</text>
+<text x="610" y="387" font-size="13" fill="#0D3B72" text-anchor="start">seed + extend</text>
+<text x="610" y="404" font-size="13" fill="#0D3B72" text-anchor="start">TruSeq, Nextera</text>
+<rect x="768" y="344" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="780" y="366" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">filters</text>
+<text x="780" y="387" font-size="13" fill="#0D3B72" text-anchor="start">min_len, max_n,</text>
+<text x="780" y="404" font-size="13" fill="#0D3B72" text-anchor="start">min_mean_q</text>
+<text x="90" y="492" font-size="13" fill="#37474F">rc 2 also when the qualities fit only Phred+64 and no --phred-offset was given (the report is printed first)</text>
+<rect x="1000" y="188" width="190" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1012" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">argv</text>
+<text x="1012" y="231" font-size="13" fill="#0D3B72" text-anchor="start">sizes|markdup|frip</text>
+<text x="1012" y="248" font-size="13" fill="#0D3B72" text-anchor="start">checked int parse</text>
+<rect x="1210" y="188" width="190" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1222" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">peaks [frip]</text>
+<text x="1222" y="231" font-size="13" fill="#0D3B72" text-anchor="start">read_peaks_bed</text>
+<text x="1222" y="248" font-size="13" fill="#0D3B72" text-anchor="start">malformed = fatal</text>
+<rect x="1420" y="188" width="190" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1432" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">PeakSet::build</text>
+<text x="1432" y="231" font-size="13" fill="#0D3B72" text-anchor="start">sort, merge overlap</text>
+<text x="1432" y="248" font-size="13" fill="#0D3B72" text-anchor="start">and book-ended; SoA</text>
+<rect x="1630" y="188" width="190" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1642" y="210" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">bind</text>
+<text x="1642" y="231" font-size="13" fill="#0D3B72" text-anchor="start">pre-seed contigs</text>
+<text x="1642" y="248" font-size="13" fill="#0D3B72" text-anchor="start">peak tid -&gt; stream tid</text>
+<rect x="1000" y="304" width="190" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1012" y="326" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">stream_fragments</text>
+<text x="1012" y="347" font-size="13" fill="#0D3B72" text-anchor="start">.bam .cram .sam:</text>
+<text x="1012" y="364" font-size="13" fill="#0D3B72" text-anchor="start">htslib;</text>
+<text x="1012" y="381" font-size="13" fill="#0D3B72" text-anchor="start">else .bedpe; else BED</text>
+<rect x="1210" y="304" width="190" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1222" y="326" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">reader</text>
+<text x="1222" y="347" font-size="13" fill="#0D3B72" text-anchor="start">BAM: TLEN&gt;0 = 1 pair</text>
+<text x="1222" y="364" font-size="13" fill="#0D3B72" text-anchor="start">text: 1 MiB, cap 64</text>
+<text x="1222" y="381" font-size="13" fill="#0D3B72" text-anchor="start">MiB/line</text>
+<rect x="1420" y="304" width="190" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1432" y="326" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">BatchEmitter</text>
+<text x="1432" y="347" font-size="13" fill="#0D3B72" text-anchor="start">Fragment = 16 B</text>
+<text x="1432" y="364" font-size="13" fill="#0D3B72" text-anchor="start">4096 per batch = 64 KiB</text>
+<text x="1432" y="381" font-size="13" fill="#0D3B72" text-anchor="start">size histogram here</text>
+<rect x="1630" y="304" width="190" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1642" y="326" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">consumers</text>
+<text x="1642" y="347" font-size="13" fill="#0D3B72" text-anchor="start">sizes: histogram</text>
+<text x="1642" y="364" font-size="13" fill="#0D3B72" text-anchor="start">markdup: marker</text>
+<text x="1642" y="381" font-size="13" fill="#0D3B72" text-anchor="start">frip: marker + count</text>
+<rect x="1000" y="434" width="408" height="96" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1012" y="456" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">DuplicateMarker</text>
+<text x="1012" y="477" font-size="13" fill="#0D3B72" text-anchor="start">sorted: keys (end, strand) of ONE start</text>
+<text x="1012" y="494" font-size="13" fill="#0D3B72" text-anchor="start">hash (--unsorted): 64-bit fingerprints</text>
+<text x="1012" y="511" font-size="13" fill="#0D3B72" text-anchor="start">sets kDuplicate in place</text>
+<rect x="1424" y="434" width="408" height="96" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1436" y="456" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">FripCounter.add_batch</text>
+<text x="1436" y="477" font-size="13" fill="#0D3B72" text-anchor="start">omp for if batch &gt;= 512; per-thread cursor</text>
+<text x="1436" y="494" font-size="13" fill="#0D3B72" text-anchor="start">5 integer sums; checked_add outside</text>
+<text x="1002" y="552" font-size="13" fill="#37474F">exit 2: nothing parsed | out of order (markdup; frip without --keep-dups) | no overlap and bad naming</text>
+<rect x="88" y="644" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="100" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">guards</text>
+<text x="100" y="687" font-size="13" fill="#0D3B72" text-anchor="start">output != input</text>
+<text x="100" y="704" font-size="13" fill="#0D3B72" text-anchor="start">limits checked</text>
+<rect x="258" y="644" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="270" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">regions</text>
+<text x="270" y="687" font-size="13" fill="#0D3B72" text-anchor="start">BED/GTF (.gz)</text>
+<text x="270" y="704" font-size="13" fill="#0D3B72" text-anchor="start">names sanitised</text>
+<rect x="428" y="644" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="440" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">BamReader</text>
+<text x="440" y="687" font-size="13" fill="#0D3B72" text-anchor="start">header, index;</text>
+<text x="440" y="704" font-size="13" fill="#0D3B72" text-anchor="start">mapped total from</text>
+<text x="440" y="721" font-size="13" fill="#0D3B72" text-anchor="start">index metadata</text>
+<rect x="598" y="644" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="610" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">compute</text>
+<text x="610" y="687" font-size="13" fill="#0D3B72" text-anchor="start">compute_matrix:</text>
+<text x="610" y="704" font-size="13" fill="#0D3B72" text-anchor="start">N&lt;=256, N&lt;=rows;</text>
+<text x="610" y="721" font-size="13" fill="#0D3B72" text-anchor="start">row blocks</text>
+<rect x="768" y="644" width="150" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="780" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">finish</text>
+<text x="780" y="687" font-size="13" fill="#0D3B72" text-anchor="start">scale, means,</text>
+<text x="780" y="704" font-size="13" fill="#0D3B72" text-anchor="start">write TSV;</text>
+<text x="780" y="721" font-size="13" fill="#0D3B72" text-anchor="start">all skipped: rc 2</text>
+<rect x="88" y="800" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="100" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">window</text>
+<text x="100" y="843" font-size="13" fill="#0D3B72" text-anchor="start">TSS/center/TES</text>
+<text x="100" y="860" font-size="13" fill="#0D3B72" text-anchor="start">anchor; minus</text>
+<text x="100" y="877" font-size="13" fill="#0D3B72" text-anchor="start">strand mirrored</text>
+<rect x="258" y="800" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="270" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">skip?</text>
+<text x="270" y="843" font-size="13" fill="#0D3B72" text-anchor="start">no such contig,</text>
+<text x="270" y="860" font-size="13" fill="#0D3B72" text-anchor="start">or off the</text>
+<text x="270" y="877" font-size="13" fill="#0D3B72" text-anchor="start">contig:</text>
+<text x="270" y="894" font-size="13" fill="#0D3B72" text-anchor="start">row = missing</text>
+<rect x="428" y="800" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="440" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">query_bins</text>
+<text x="440" y="843" font-size="13" fill="#0D3B72" text-anchor="start">widen by max</text>
+<text x="440" y="860" font-size="13" fill="#0D3B72" text-anchor="start">fragment;</text>
+<text x="440" y="877" font-size="13" fill="#0D3B72" text-anchor="start">sam_itr_queryi</text>
+<rect x="598" y="800" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="610" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">alignment</text>
+<text x="610" y="843" font-size="13" fill="#0D3B72" text-anchor="start">flags + MAPQ;</text>
+<text x="610" y="860" font-size="13" fill="#0D3B72" text-anchor="start">leftmost mate:</text>
+<text x="610" y="877" font-size="13" fill="#0D3B72" text-anchor="start">TLEN span;</text>
+<text x="610" y="894" font-size="13" fill="#0D3B72" text-anchor="start">reads + bases</text>
+<rect x="768" y="800" width="150" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="780" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">row</text>
+<text x="780" y="843" font-size="13" fill="#0D3B72" text-anchor="start">fill bins;</text>
+<text x="780" y="860" font-size="13" fill="#0D3B72" text-anchor="start">minus strand</text>
+<text x="780" y="877" font-size="13" fill="#0D3B72" text-anchor="start">reversed:</text>
+<text x="780" y="894" font-size="13" fill="#0D3B72" text-anchor="start">5&#x27; to 3&#x27;</text>
+<text x="90" y="948" font-size="13" fill="#37474F">matrix = regions x bins doubles, allocated up front (bins &lt;= 10,000,000)</text>
+<text x="90" y="965" font-size="13" fill="#37474F">means: min(N, rows/64, 64 MiB/(cols*8)) reducers, cache-line aligned</text>
+<text x="90" y="982" font-size="13" fill="#37474F">skipped rows stay in the matrix but leave means, BPM total and scaling</text>
+<rect x="1000" y="644" width="190" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1012" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">detect</text>
+<text x="1012" y="687" font-size="13" fill="#0D3B72" text-anchor="start">peek first byte:</text>
+<text x="1012" y="704" font-size="13" fill="#0D3B72" text-anchor="start">1f = BAM, else BED</text>
+<text x="1012" y="721" font-size="13" fill="#0D3B72" text-anchor="start">(stdin ok)</text>
+<rect x="1210" y="644" width="190" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1222" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">records</text>
+<text x="1222" y="687" font-size="13" fill="#0D3B72" text-anchor="start">BAM: BGZF + CRC32,</text>
+<text x="1222" y="704" font-size="13" fill="#0D3B72" text-anchor="start">leftmost mate TLEN&gt;0</text>
+<text x="1222" y="721" font-size="13" fill="#0D3B72" text-anchor="start">BED: 4 MiB blocks</text>
+<rect x="1420" y="644" width="190" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1432" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">Driver.add</text>
+<text x="1432" y="687" font-size="13" fill="#0D3B72" text-anchor="start">order and bounds</text>
+<text x="1432" y="704" font-size="13" fill="#0D3B72" text-anchor="start">checked; seek across</text>
+<text x="1432" y="721" font-size="13" fill="#0D3B72" text-anchor="start">coverage deserts</text>
+<rect x="1630" y="644" width="190" height="100" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1642" y="666" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">finalize</text>
+<text x="1642" y="687" font-size="13" fill="#0D3B72" text-anchor="start">BH over ALL</text>
+<text x="1642" y="704" font-size="13" fill="#0D3B72" text-anchor="start">candidates, then</text>
+<text x="1642" y="721" font-size="13" fill="#0D3B72" text-anchor="start">narrowPeak</text>
+<rect x="1000" y="800" width="190" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1012" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">MultiScaleWindow</text>
+<text x="1012" y="843" font-size="13" fill="#0D3B72" text-anchor="start">delta + pileup rings,</text>
+<text x="1012" y="860" font-size="13" fill="#0D3B72" text-anchor="start">2 x 16384 x int64</text>
+<text x="1012" y="877" font-size="13" fill="#0D3B72" text-anchor="start">= 256 KiB</text>
+<rect x="1210" y="800" width="190" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1222" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">3 backgrounds</text>
+<text x="1222" y="843" font-size="13" fill="#0D3B72" text-anchor="start">centred 1k, 5k, 10k</text>
+<text x="1222" y="860" font-size="13" fill="#0D3B72" text-anchor="start">running sums;</text>
+<text x="1222" y="877" font-size="13" fill="#0D3B72" text-anchor="start">lag = 5000 bases</text>
+<rect x="1420" y="800" width="190" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1432" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">PeakCaller</text>
+<text x="1432" y="843" font-size="13" fill="#0D3B72" text-anchor="start">prefilter, queue of</text>
+<text x="1432" y="860" font-size="13" fill="#0D3B72" text-anchor="start">256,</text>
+<text x="1432" y="877" font-size="13" fill="#0D3B72" text-anchor="start">SIMD Poisson -log10 p</text>
+<rect x="1630" y="800" width="190" height="110" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1642" y="822" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">state machine</text>
+<text x="1642" y="843" font-size="13" fill="#0D3B72" text-anchor="start">IDLE, IN_PEAK,</text>
+<text x="1642" y="860" font-size="13" fill="#0D3B72" text-anchor="start">SUMMIT_SEARCH,</text>
+<text x="1642" y="877" font-size="13" fill="#0D3B72" text-anchor="start">CLOSING (max_gap)</text>
+<text x="1002" y="948" font-size="13" fill="#37474F">lambda = max(genome floor, 3 local rates); a degenerate lambda scores p = 1 (fails closed)</text>
+<text x="1002" y="965" font-size="13" fill="#37474F">peaks are held (32 B each) until finalize(): BH needs every p-value, so only the INPUT streams</text>
+<text x="1002" y="982" font-size="13" fill="#37474F">exit 2: unsorted, contig not in sizes, bad field, BED fragment &gt; 4096 bp (BAM: counted skipped)</text>
+<path d="M238,238 L258,238" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M408,238 L428,238" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M578,238 L598,238" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M748,238 L768,238" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M238,399 L258,399" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M408,399 L428,399" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M578,399 L598,399" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M748,399 L768,399" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M673,288 L673,316 L163,316 L163,344" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<text x="418" y="311" font-size="12" fill="#1565C0" text-anchor="middle" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">per record, in each of W workers</text>
+<path d="M1190,238 L1210,238" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1400,238 L1420,238" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1610,238 L1630,238" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1190,359 L1210,359" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1400,359 L1420,359" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1610,359 L1630,359" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1305,288 L1305,296 L1095,296 L1095,304" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1725,414 L1725,424 L1204,424 L1204,434" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1725,414 L1725,424 L1628,424 L1628,434" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M238,694 L258,694" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M408,694 L428,694" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M578,694 L598,694" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M748,694 L768,694" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M238,855 L258,855" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M408,855 L428,855" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M578,855 L598,855" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M748,855 L768,855" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M673,744 L673,772 L163,772 L163,800" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<text x="418" y="767" font-size="12" fill="#1565C0" text-anchor="middle" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">per region, in each of N workers</text>
+<path d="M1190,694 L1210,694" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1400,694 L1420,694" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1610,694 L1630,694" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1190,855 L1210,855" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1400,855 L1420,855" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1610,855 L1630,855" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<path d="M1515,744 L1515,772 L1095,772 L1095,800" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<text x="1305" y="767" font-size="12" fill="#1565C0" text-anchor="middle" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">per base, one thread</text>
+</svg>

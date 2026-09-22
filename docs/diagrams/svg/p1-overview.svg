@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="Inter, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="a-payload" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#37474F"/></marker>
+<marker id="a-control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565C0"/></marker>
+<marker id="a-error" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C62828"/></marker>
+<marker id="a-contract" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6A3FA0"/></marker>
+</defs>
+<rect width="1920" height="1080" fill="#FFFFFF"/>
+<text x="64" y="66" font-size="32" font-weight="700" fill="#0F2A43">Five independent C++20 engines behind one process boundary</text>
+<text x="64" y="98" font-size="17" fill="#546E7A">No shared runtime and no shared code: callers reach an engine only through argv, files, stdio and an exit code.</text>
+<text x="64" y="1066" font-size="11" fill="#78909C">Sources: packaging/pto/*, pyproject.toml, CMakeLists.txt, modules/*/src/main.cpp (commit 0ba20d1)</text>
+<rect x="64" y="124" width="1792" height="140" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="78" y="146" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">CALLERS</text>
+<rect x="64" y="292" width="912" height="270" rx="4" fill="#F4FAF5" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="78" y="314" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">PYTHON ORCHESTRATION   packaging/pto   stdlib only, zero runtime dependencies</text>
+<rect x="64" y="590" width="1792" height="48" rx="8" fill="#EFE6FA" stroke="#6A3FA0" stroke-width="2.5"/>
+<text x="960.0" y="612" font-size="16" font-weight="700" fill="#3F2266" text-anchor="middle">PROCESS BOUNDARY   argv + files + stdio + exit code   no shared memory   no IPC</text>
+<rect x="64" y="666" width="1792" height="250" rx="4" fill="#F5F9FF" stroke="#1565C0" stroke-width="1.5"/>
+<text x="78" y="688" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">C++20 ENGINES</text>
+<rect x="88" y="928" width="328" height="56" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="100" y="950" font-size="13" fill="#424242" text-anchor="start">zlib + libdeflate</text>
+<text x="100" y="967" font-size="13" fill="#424242" text-anchor="start">htslib optional (ON in the wheel)</text>
+<rect x="440" y="928" width="328" height="56" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="452" y="950" font-size="13" fill="#424242" text-anchor="start">htslib (AUTO-detected)</text>
+<text x="452" y="967" font-size="13" fill="#424242" text-anchor="start">OpenMP optional</text>
+<rect x="792" y="928" width="328" height="56" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="804" y="950" font-size="13" fill="#424242" text-anchor="start">libdeflate or zlib (BAM/BGZF)</text>
+<text x="804" y="967" font-size="13" fill="#424242" text-anchor="start">no htslib</text>
+<rect x="1144" y="928" width="328" height="56" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="1156" y="950" font-size="13" fill="#424242" text-anchor="start">htslib (required)</text>
+<text x="1156" y="967" font-size="13" fill="#424242" text-anchor="start">httplib + json (server only)</text>
+<rect x="1496" y="928" width="328" height="56" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="1508" y="950" font-size="13" fill="#424242" text-anchor="start">OpenMP (required, hard fail)</text>
+<text x="1508" y="967" font-size="13" fill="#424242" text-anchor="start">hnswlib (vendored, patched)</text>
+<rect x="64" y="996" width="1792" height="44" rx="8" fill="#EFE6FA" stroke="#6A3FA0" stroke-width="1.5"/>
+<text x="76" y="1018" font-size="13" fill="#3F2266" text-anchor="start">cmake -S . : PTO_BUILD_* x5 (PTO_CLOUD_BUILD off)  -&gt;  wheel pto-core py3-none-&lt;platform&gt;, 4 CLIs in pto/_vendor/bin  |  wheel scrna-matrix cp39-cp313  |  four private copies of file_identity.hpp</text>
+<rect x="88" y="164" width="272" height="88" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="100" y="186" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">pto-core CLI</text>
+<text x="100" y="207" font-size="13" fill="#1B4D20" text-anchor="start">console script pto.cli:main</text>
+<rect x="384" y="164" width="272" height="88" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="396" y="186" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">import pto</text>
+<text x="396" y="207" font-size="13" fill="#1B4D20" text-anchor="start">Python API, 7 functions</text>
+<rect x="1000" y="164" width="196" height="88" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="1012" y="186" font-size="16" font-weight="700" fill="#424242" text-anchor="start">shell / SLURM</text>
+<text x="1012" y="207" font-size="13" fill="#424242" text-anchor="start">bare tool names on PATH</text>
+<rect x="1318" y="164" width="196" height="88" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="1330" y="186" font-size="16" font-weight="700" fill="#424242" text-anchor="start">browser</text>
+<text x="1330" y="207" font-size="13" fill="#424242" text-anchor="start">dashboard, loopback only</text>
+<rect x="1636" y="164" width="196" height="88" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="1648" y="186" font-size="16" font-weight="700" fill="#424242" text-anchor="start">scanpy / AnnData</text>
+<text x="1648" y="207" font-size="13" fill="#424242" text-anchor="start">import scrna_matrix</text>
+<rect x="88" y="344" width="272" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="100" y="366" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">cli.py</text>
+<text x="100" y="387" font-size="13" fill="#1B4D20" text-anchor="start">argparse, 12 subcommands</text>
+<text x="100" y="404" font-size="13" fill="#1B4D20" text-anchor="start">exec uses os.execv</text>
+<rect x="384" y="344" width="272" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="396" y="366" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">api.py</text>
+<text x="396" y="387" font-size="13" fill="#1B4D20" text-anchor="start">7 functions</text>
+<text x="396" y="404" font-size="13" fill="#1B4D20" text-anchor="start">None kwargs are omitted</text>
+<rect x="680" y="344" width="272" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="692" y="366" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">_cpu.py</text>
+<text x="692" y="387" font-size="13" fill="#1B4D20" text-anchor="start">min(affinity, cgroup quota,</text>
+<text x="692" y="404" font-size="13" fill="#1B4D20" text-anchor="start">cpu_count), never below 1</text>
+<rect x="88" y="452" width="272" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="100" y="474" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">_binaries.py</text>
+<text x="100" y="495" font-size="13" fill="#1B4D20" text-anchor="start">$PTO_BIN_DIR &gt; pto/_vendor/bin</text>
+<text x="100" y="512" font-size="13" fill="#1B4D20" text-anchor="start">&gt; $PATH</text>
+<rect x="384" y="452" width="272" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="396" y="474" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">_run.py</text>
+<text x="396" y="495" font-size="13" fill="#1B4D20" text-anchor="start">Popen, shell=False</text>
+<text x="396" y="512" font-size="13" fill="#1B4D20" text-anchor="start">os.wait4: wall time + peak RSS</text>
+<rect x="680" y="452" width="272" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="692" y="474" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">errors.py</text>
+<text x="692" y="495" font-size="13" fill="#1B4D20" text-anchor="start">rc 2 = InvalidInput</text>
+<text x="692" y="512" font-size="13" fill="#1B4D20" text-anchor="start">other rc = ToolError</text>
+<rect x="88" y="712" width="328" height="190" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="100" y="734" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">fastq_stream 0.1.0</text>
+<text x="100" y="755" font-size="13" fill="#0D3B72" text-anchor="start">CLI: streaming QC and trimming</text>
+<text x="100" y="772" font-size="13" fill="#0D3B72" text-anchor="start">in: FASTQ raw/gz/BGZF; BAM/CRAM/SAM</text>
+<text x="100" y="789" font-size="13" fill="#0D3B72" text-anchor="start">out: QC JSON + text; FASTQ to</text>
+<text x="100" y="806" font-size="13" fill="#0D3B72" text-anchor="start">file/FIFO/stdout</text>
+<text x="100" y="823" font-size="13" fill="#0D3B72" text-anchor="start">threads 3+D+W; SIMD runtime</text>
+<text x="100" y="840" font-size="13" fill="#0D3B72" text-anchor="start">exit 0 | 1 | 2 (usage errors too)</text>
+<rect x="440" y="712" width="328" height="190" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="452" y="734" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">genomic_toolkit 0.1.0</text>
+<text x="452" y="755" font-size="13" fill="#0D3B72" text-anchor="start">CLI: sizes | markdup | frip</text>
+<text x="452" y="772" font-size="13" fill="#0D3B72" text-anchor="start">in: BAM/CRAM, BEDPE, fragment BED</text>
+<text x="452" y="789" font-size="13" fill="#0D3B72" text-anchor="start">out: JSON on stdout (+ histogram TSV)</text>
+<text x="452" y="806" font-size="13" fill="#0D3B72" text-anchor="start">threads 1 + OpenMP (FRiP); no hand SIMD</text>
+<text x="452" y="823" font-size="13" fill="#0D3B72" text-anchor="start">exit 0 | 1 | 2</text>
+<rect x="792" y="712" width="328" height="190" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="804" y="734" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">pto-peaks 0.1.0</text>
+<text x="804" y="755" font-size="13" fill="#0D3B72" text-anchor="start">CLI: streaming peak caller</text>
+<text x="804" y="772" font-size="13" fill="#0D3B72" text-anchor="start">in: fragment BED or sorted BAM (stdin ok)</text>
+<text x="804" y="789" font-size="13" fill="#0D3B72" text-anchor="start">out: narrowPeak; BAM decoded natively</text>
+<text x="804" y="806" font-size="13" fill="#0D3B72" text-anchor="start">threads 1; SIMD runtime (Poisson)</text>
+<text x="804" y="823" font-size="13" fill="#0D3B72" text-anchor="start">exit 0 | 1 | 2</text>
+<rect x="1144" y="712" width="328" height="190" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1156" y="734" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">cuttag_profiler 1.0.0</text>
+<text x="1156" y="755" font-size="13" fill="#0D3B72" text-anchor="start">CLI: profile | serve</text>
+<text x="1156" y="772" font-size="13" fill="#0D3B72" text-anchor="start">in: indexed BAM + BED/GTF</text>
+<text x="1156" y="789" font-size="13" fill="#0D3B72" text-anchor="start">out: matrix.tsv + profile.tsv, or HTTP</text>
+<text x="1156" y="806" font-size="13" fill="#0D3B72" text-anchor="start">threads N workers; no hand SIMD</text>
+<text x="1156" y="823" font-size="13" fill="#0D3B72" text-anchor="start">exit 0 | 1 | 2</text>
+<rect x="1496" y="712" width="328" height="190" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1508" y="734" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">scrna_matrix</text>
+<text x="1508" y="755" font-size="13" fill="#0D3B72" text-anchor="start">header-only C++20 + pybind11 module</text>
+<text x="1508" y="772" font-size="13" fill="#0D3B72" text-anchor="start">in: NumPy/SciPy CSR buffers</text>
+<text x="1508" y="789" font-size="13" fill="#0D3B72" text-anchor="start">out: KnnGraph as NumPy views</text>
+<text x="1508" y="806" font-size="13" fill="#0D3B72" text-anchor="start">threads OpenMP; SIMD runtime</text>
+<text x="1508" y="823" font-size="13" fill="#0D3B72" text-anchor="start">no CLI, no exit code; own wheel</text>
+<path d="M224,252 L224,344" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M520,252 L520,344" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M360,392 L384,392" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M680,392 L656,392" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M520,440 L520,452" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M384,500 L360,500" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M656,500 L680,500" fill="none" stroke="#C62828" stroke-width="1.6" stroke-dasharray="2 4" marker-end="url(#a-error)"/>
+<path d="M520,548 L520,590" fill="none" stroke="#6A3FA0" stroke-width="3.0" marker-end="url(#a-contract)"/>
+<path d="M1098,252 L1098,590" fill="none" stroke="#6A3FA0" stroke-width="3.0" marker-end="url(#a-contract)"/>
+<text x="1098" y="416" font-size="12" fill="#6A3FA0" text-anchor="middle" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">bare tool names</text>
+<path d="M252,638 L252,712" fill="none" stroke="#6A3FA0" stroke-width="3.0" marker-end="url(#a-contract)"/>
+<path d="M604,638 L604,712" fill="none" stroke="#6A3FA0" stroke-width="3.0" marker-end="url(#a-contract)"/>
+<path d="M956,638 L956,712" fill="none" stroke="#6A3FA0" stroke-width="3.0" marker-end="url(#a-contract)"/>
+<path d="M1308,638 L1308,712" fill="none" stroke="#6A3FA0" stroke-width="3.0" marker-end="url(#a-contract)"/>
+<path d="M1416,252 L1416,690 L1450,690 L1450,712" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<text x="1416" y="466" font-size="12" fill="#37474F" text-anchor="middle" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">HTTP 127.0.0.1</text>
+<path d="M1734,252 L1734,712" fill="none" stroke="#37474F" stroke-width="2.5" marker-end="url(#a-payload)"/>
+<text x="1734" y="477" font-size="12" fill="#37474F" text-anchor="middle" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">in-process import</text>
+</svg>

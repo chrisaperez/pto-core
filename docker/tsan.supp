@@ -1,0 +1,165 @@
+# ThreadSanitizer suppressions for pto-core.
+#
+# SCOPE DISCIPLINE
+# ----------------
+# This file may only suppress reports whose every frame is in code we neither
+# wrote nor build with instrumentation. It must never be used to silence a
+# report that touches modules/*/src or modules/*/include -- if a first-party
+# race shows up, fix the race.
+#
+# That rule has already paid for itself once: the first containerised run
+# reported a data race in hnswlib::getRandomLevel reached through
+# scrna::hnsw_build_and_search. It would have been trivially "suppressible" as
+# third-party. It was a real unsynchronised read-modify-write of a shared PRNG,
+# and it was fixed instead (see third_party/hnswlib/VERSION.txt).
+#
+# Every entry below states what it covers, why it is not a first-party defect,
+# and what evidence backs that.
+
+# ---------------------------------------------------------------------------
+# 1. libomp's internal lock pool.  FALSE POSITIVE.
+#
+# Reports of the shape:
+#     Atomic read of size 1 ... pthread_mutex_lock  <- interceptor
+#       #1 (libomp.so.5+0xb7064)
+#     Previous write of size 1 ... pthread_mutex_init
+#       #1 (libomp.so.5+0xb3aa8)
+#     Location is heap block ... allocated by (libomp.so.5+0x225f8)
+#
+# Every frame is either libomp or a TSan interceptor; none is ours. libomp is
+# linked uninstrumented from the distro package, so TSan cannot see its internal
+# happens-before edges even with libarcher loaded (archer annotates OpenMP
+# *semantics* -- barriers, taskwait, reductions -- not the runtime's own lock
+# pool bootstrap).
+#
+# Evidence this is not first-party: rebuilding with -DSCRNA_ENABLE_HNSW=OFF
+# leaves these reports unchanged in shape and origin, and they persist with a
+# body that touches no user locks at all.
+#
+# `called_from_lib` and NOT `race:libomp.so` / `race:__kmp_`. Those two were
+# tried first and are catastrophically over-broad: TSan matches `race:` against
+# ANY frame in the stack, and `__kmp_invoke_microtask` appears in the stack of
+# every race inside an OpenMP parallel region -- including first-party ones.
+# A negative control caught it: with the hnswlib getRandomLevel fix deliberately
+# reverted, the known data race was reported ZERO times under those rules. The
+# suppression file had blinded the entire harness. `called_from_lib` instead
+# matches only when the *caller* of the intercepted function lives in libomp,
+# which is true for the runtime's own lock pool and false for our code.
+called_from_lib:libomp.so
+
+# ---------------------------------------------------------------------------
+# 2. hnswlib's per-element lock array.  GENUINE, UPSTREAM, NOT OURS.
+#
+# TSan's deadlock detector reports thousands of lock-order inversions between
+# hnswlib's `link_list_locks_[cur_c]` (taken in addPoint, hnswalg.h:1185) and
+# `label_op_locks_[...]` / `link_list_locks_[neighbour]` (taken in
+# mutuallyConnectNewElement, hnswalg.h:529,555).
+#
+# This is NOT labelled a false positive. Two threads inserting elements whose
+# neighbour sets overlap can acquire the same pair of per-element mutexes in
+# opposite orders, which is a real lock-order inversion and therefore a real
+# potential deadlock in upstream hnswlib's design. It is suppressed here rather
+# than fixed because fixing it means restructuring hnswlib's locking, which is
+# a change to vendored upstream code with a far worse risk profile than the
+# residual, and because it is not observed to deadlock in practice at the
+# concurrency this library uses.
+#
+# Attribution is exact, not assumed: building with -DSCRNA_ENABLE_HNSW=OFF
+# drops the count from 7,560 across six runs to ZERO, while first-party
+# parallel code (parallel_for_checked, the brute-force k-NN region) is
+# unchanged. Our parallel regions take no std::mutex at all -- only one named
+# `#pragma omp critical` -- so a lock-order inversion cannot originate there.
+#
+# Tracked in third_party/hnswlib/VERSION.txt. Revisit on any hnswlib bump.
+deadlock:hnswalg.h
+deadlock:hnswlib
+deadlock:libomp.so
+
+# ---------------------------------------------------------------------------
+# 3. Uninstrumented distro shared objects reached from cuttag_profiler and
+#    fastq_stream (whole-tree runs only; TSAN_MODULES=scrna_matrix skips them).
+#
+# htslib is a large C codebase linked uninstrumented. cuttag_profiler
+# serialises all htslib access per BamReader, which the bam_query suite covers.
+# zlib/libdeflate likewise.
+called_from_lib:libhts.so
+called_from_lib:libz.so
+called_from_lib:libdeflate.so
+
+# ---------------------------------------------------------------------------
+# 4. genomic_toolkit's FRiP reduction.  FALSE POSITIVE -- DELIBERATELY NOT
+#    SUPPRESSED. Documented here so it is re-verified, not re-investigated.
+#
+# On a host whose libomp is not TSan-instrumented (Homebrew's is not, and
+# neither is any macOS toolchain), running `genomic_toolkit frip` under TSan
+# reports 20-40 races of this shape:
+#
+#     WARNING: ThreadSanitizer: data race
+#       Read of size 8 ... FripCounter::add_batch (.omp_outlined_debug__
+#                          .omp.reduction.reduction_func) frip.hpp:106
+#         #1 __kmp_hyper_barrier_gather (libomp.dylib)
+#       Previous write ... FripCounter::add_batch (.omp_outlined) frip.hpp:105
+#       Location is stack of thread T3.
+#
+# No entry is added for it, because the scope rule at the top of this file
+# forbids one: the reported frames are in modules/genomic_toolkit/include/
+# toolkit/frip.hpp, which is first-party. A `race:frip.hpp` rule would also
+# blind the harness to any genuine race later introduced into that file --
+# exactly the failure mode the negative control in section 1 caught.
+#
+# It is a false positive, on four independent pieces of evidence:
+#
+#   1. The reported location is "stack of thread T<n>" -- the private per-thread
+#      reduction copies libomp creates, not shared state. The loop's only write
+#      to shared memory is `f.flags |= kInPeak` on data[i], and the schedule is
+#      static over distinct i, so no two threads touch the same Fragment.
+#   2. The non-libomp frames are the compiler-generated `.omp_outlined` and
+#      `.omp.reduction.reduction_func` thunks, reached from
+#      __kmp_hyper_barrier_gather. TSan cannot see the barrier's happens-before
+#      edges through an uninstrumented libomp, so it reports the reduction
+#      combine itself.
+#   3. OMP_NUM_THREADS=1 under TSan reports ZERO races: with no combine step
+#      there is nothing for TSan to misread.
+#   4. Rebuilding the same source with -DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=ON
+#      under TSan reports ZERO races AND produces byte-identical output.
+#
+# Correctness was established separately from the sanitizer: 55 runs of the
+# same 200k-fragment workload across 11 thread counts (1..128), without TSan,
+# produced exactly ONE distinct JSON result. A broken `reduction(+:...)` drifts;
+# this does not.
+#
+# To get a clean TSan run over the FRiP path, either build libomp with
+# -DLIBOMP_TSAN_SUPPORT=ON and load libarcher, or configure with
+# -DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=ON -- the reduction is the only OpenMP in
+# the module and disabling it changes no results.
+
+# ---------------------------------------------------------------------------
+# 5. The peaks/fastq_stream "write failure" CLI tests.  NOT A SUPPRESSION --
+#    the two assertions skip themselves under TSan; documented here because
+#    the mechanism is the same class of finding as sections 1/2/4.
+#
+# modules/peaks/scripts/test_cli.sh ("a narrowPeak write failure exits 1") and
+# modules/fastq_stream/tests/test_cli.sh ("JSON report write failure") both
+# impose `ulimit -f 1` (512 bytes) with SIGXFSZ ignored, to prove the tool
+# reports EFBIG cleanly instead of exiting 0 over a truncated write. Under a
+# TSan build, that limit kills the process before main runs: TSan's own
+# runtime needs somewhere between 128 KiB and 512 KiB of file-size headroom
+# just to initialize, so it SIGBUSes inside its own strlen interceptor during
+# the first std::string construction (Options::Options(), before argument
+# parsing) rather than reaching the code path under test. Confirmed by
+# sweeping the limit from 512 B to 512 KiB against a debug build under gdb --
+# the crash is entirely inside __tsan::MemoryAccessRangeT, no application
+# frame involved, and it clears once the limit is raised, independent of
+# anything either test does.
+#
+# Not suppressible here: this is a DEADLYSIGNAL, not a data race or lock-order
+# inversion, so it has no frame for a race:/deadlock: rule to match. And
+# raising the limit enough to clear TSan's floor also clears the few KiB
+# either fixture actually writes, which would stop the assertion from ever
+# exercising EFBIG -- there is no limit that is simultaneously safe for TSan's
+# runtime and tight enough for either fixture without inflating it to tens of
+# thousands of records, a real cost to a CLI smoke test under TSan's overhead
+# for no corresponding coverage gained. Both scripts detect TSAN_OPTIONS (set
+# by scripts/run_tsan.sh for every invocation) and skip loudly with this
+# reasoning inline rather than silently passing or failing red for a
+# limitation in the tool, not the code under test.

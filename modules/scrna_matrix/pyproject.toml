@@ -1,0 +1,143 @@
+# Wheel packaging for scrna_matrix.
+#
+# This file lives in the module, not at the repo root, on purpose. The three
+# modules share no code and each must stay independently buildable; a root
+# pyproject.toml reaching down into modules/ would make the wheel depend on the
+# aggregate build, which is exactly the coupling the repository layout forbids.
+#
+# Build backend is scikit-build-core because the project is already CMake and
+# the alternative (a setup.py that shells out to cmake) reimplements what it
+# does. `pip install .` from this directory is a supported path, not only CI.
+
+[build-system]
+requires = ["scikit-build-core>=0.9", "pybind11>=2.12", "setuptools-scm>=8"]
+build-backend = "scikit_build_core.build"
+
+# This pyproject.toml is two directories below the git root (../..), unlike
+# the root pto-core one, which sits at it directly. Same reasoning as there:
+# wheels.yml publishes both packages from the same `v*`-tagged push, so both
+# need their version to actually come from that tag rather than a static
+# number nothing updates -- see the root pyproject.toml's
+# metadata.version.provider comment for the failure mode this replaces.
+[tool.setuptools_scm]
+root = "../.."
+
+[project]
+name = "scrna-matrix"
+dynamic = ["version"]
+description = "Cache-aligned sparse matrix engine and SIMD k-NN for single-cell data"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "pto-core" }]
+keywords = ["single-cell", "scRNA-seq", "sparse-matrix", "knn", "hnsw", "simd"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+# numpy is a RUNTIME dependency only. pybind11/numpy.h binds the NumPy C API at
+# import time rather than compile time, so there are no numpy headers to build
+# against and no oldest-supported-numpy pin to maintain.
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+test = ["pytest", "scipy"]
+
+[project.urls]
+Homepage = "https://github.com/chrisaperez/pto-core"
+Repository = "https://github.com/chrisaperez/pto-core"
+Issues = "https://github.com/chrisaperez/pto-core/issues"
+Documentation = "https://github.com/chrisaperez/pto-core/blob/main/modules/scrna_matrix/README.md"
+
+[tool.scikit-build]
+cmake.version = ">=3.20"
+cmake.source-dir = "."
+minimum-version = "0.9"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+# python/scrna_matrix/__init__.py is the package; CMake installs the compiled
+# extension into the same directory (see the install() rule in CMakeLists.txt).
+wheel.packages = ["python/scrna_matrix"]
+build-dir = "build/{wheel_tag}"
+sdist.include = ["include", "src", "third_party", "python", "CMakeLists.txt", "README.md"]
+sdist.exclude = ["build", "tests/__pycache__"]
+
+[tool.scikit-build.cmake.define]
+SCRNA_BUILD_PYTHON = "ON"
+SCRNA_ENABLE_HNSW = "ON"
+# Tests are C++ executables that nothing in the wheel needs; building them
+# roughly doubles the wheel build time across five interpreters.
+SCRNA_BUILD_TESTS = "OFF"
+
+# THE ONE SETTING THAT MUST NOT CHANGE FOR A REDISTRIBUTABLE WHEEL.
+#
+# SCRNA_HNSW_NATIVE_ISA=ON puts AVX2/AVX-512 flags on the whole target, which
+# bakes the *build host's* instruction set into the binary. A wheel is installed
+# on machines we have never seen; an AVX-512 instruction reaching a CPU without
+# it is a SIGILL at import, with no diagnostic a user can act on.
+#
+# The engine reaches AVX-512 anyway, through per-function target attributes and
+# runtime dispatch in simd_math.hpp. That design exists precisely so this flag
+# can stay off. Leave it off.
+SCRNA_HNSW_NATIVE_ISA = "OFF"
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+skip = ["pp*", "*-musllinux*"]
+# All of musllinux, not just i686: cp39's musllinux_aarch64 test needs scipy,
+# which needs OpenBLAS -- unavailable on the Alpine-based musllinux image,
+# and not part of this package's target platform matrix anyway.
+build-frontend = "build"
+test-extras = ["test"]
+# Two checks, deliberately. The import smoke test runs the wheel on a fresh
+# interpreter and is what catches a missing vendored OpenMP runtime or an ISA
+# baked in by accident -- failures the pytest suite would never reach because it
+# cannot even import the module. Then the real suite.
+test-command = [
+  "python -c \"import scrna_matrix; print(scrna_matrix.simd_isa(), scrna_matrix.has_hnsw())\"",
+  "python -m pytest {package}/tests/test_python_bindings.py -q",
+]
+
+[tool.cibuildwheel.linux]
+# manylinux ships libgomp, and auditwheel vendors it into the wheel, so OpenMP
+# needs no special handling here. It does on macOS -- see below.
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+
+[tool.cibuildwheel.macos]
+# scrna_matrix FAILS TO CONFIGURE without OpenMP, by design, and Apple Clang
+# ships no OpenMP runtime -- so libomp must be present on the runner and
+# delocate then vendors libomp.dylib into the wheel.
+#
+# Homebrew's libomp is per-architecture, which is why the workflow builds macOS
+# wheels natively on one runner per arch instead of producing a universal2:
+# an arm64 runner cannot link an x86_64 libomp.dylib, and the cross build either
+# fails at link time or yields a wheel dyld rejects on the user's machine.
+#
+# OpenMP_ROOT is set from `brew --prefix libomp` rather than hardcoded, because
+# the prefix differs by architecture (/opt/homebrew on Apple Silicon,
+# /usr/local on Intel).
+#
+# Note this does not rely on the repo's cmake/PtoOpenMP.cmake helper. That
+# helper lives at the repository root and CMakeLists.txt includes it OPTIONAL,
+# so it is present when building from a checkout but NOT from a published sdist,
+# whose root is this directory. Setting OpenMP_ROOT explicitly makes the macOS
+# build work either way.
+before-all = "brew install libomp"
+environment = { OpenMP_ROOT = "$(brew --prefix libomp)" }
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+# Same narrow selection as the repo root's pyproject.toml, and repeated
+# rather than inherited because this file marks its own ruff project
+# boundary (ruff stops at the nearest pyproject.toml when walking up from a
+# file, whether or not that file has a [tool.ruff] section) -- see
+# CONTRIBUTING.md. Keep the two in sync.
+select = ["E4", "E7", "E9", "F"]

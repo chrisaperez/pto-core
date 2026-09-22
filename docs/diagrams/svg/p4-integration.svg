@@ -1,0 +1,227 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="Inter, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="a-payload" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#37474F"/></marker>
+<marker id="a-control" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1565C0"/></marker>
+<marker id="a-error" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C62828"/></marker>
+<marker id="a-contract" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6A3FA0"/></marker>
+</defs>
+<rect width="1920" height="1080" fill="#FFFFFF"/>
+<text x="64" y="66" font-size="32" font-weight="700" fill="#0F2A43">Everything outside the engines meets them at one contract</text>
+<text x="64" y="98" font-size="17" fill="#546E7A">argv in; JSON, files and an exit code out. The wrapper adds resolution, thread budgeting and error typing.</text>
+<text x="64" y="1066" font-size="11" fill="#78909C">Sources: packaging/pto/*, pyproject.toml, ci.yml, wheels.yml, http_server.cpp:401-803, deploy/* (commit 0ba20d1); dashboard probed live</text>
+<rect x="64" y="124" width="1100" height="480" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="78" y="146" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">A   FOUR WAYS IN</text>
+<rect x="1196" y="124" width="660" height="480" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="1210" y="146" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">B   RESOLUTION AND THREADS</text>
+<rect x="64" y="620" width="1100" height="274" fill="#FFFFFF" stroke="#B0BEC5"/>
+<rect x="64" y="620" width="1100" height="28" fill="#ECEFF1" stroke="#B0BEC5"/>
+<text x="70" y="640" font-size="12" font-weight="700" fill="#263238">engine</text>
+<text x="260" y="640" font-size="12" font-weight="700" fill="#263238">machine-readable</text>
+<line x1="254" y1="620" x2="254" y2="894" stroke="#CFD8DC"/>
+<text x="480" y="640" font-size="12" font-weight="700" fill="#263238">artifacts</text>
+<line x1="474" y1="620" x2="474" y2="894" stroke="#CFD8DC"/>
+<text x="680" y="640" font-size="12" font-weight="700" fill="#263238">exit codes</text>
+<line x1="674" y1="620" x2="674" y2="894" stroke="#CFD8DC"/>
+<text x="970" y="640" font-size="12" font-weight="700" fill="#263238">thread control</text>
+<line x1="964" y1="620" x2="964" y2="894" stroke="#CFD8DC"/>
+<line x1="64" y1="648" x2="1164" y2="648" stroke="#CFD8DC"/>
+<text x="70" y="664" font-size="12" fill="#263238">fastq_stream</text>
+<text x="70" y="680" font-size="12" fill="#263238">qc | trim</text>
+<text x="260" y="664" font-size="12" fill="#263238">JSON file: -j PATH</text>
+<text x="260" y="680" font-size="12" fill="#263238">text: --report PATH</text>
+<text x="260" y="696" font-size="12" fill="#263238">wrapper reads the JSON</text>
+<text x="480" y="664" font-size="12" fill="#263238">trimmed FASTQ:</text>
+<text x="480" y="680" font-size="12" fill="#263238">-o FILE | FIFO | -</text>
+<text x="680" y="664" font-size="12" fill="#263238">0 ok, 1 runtime</text>
+<text x="680" y="680" font-size="12" fill="#263238">2 usage error, or</text>
+<text x="680" y="696" font-size="12" fill="#263238">Phred+64 suspected</text>
+<text x="970" y="664" font-size="12" fill="#263238">-t N: wrapper passes it</text>
+<line x1="64" y1="706" x2="1164" y2="706" stroke="#CFD8DC"/>
+<text x="70" y="722" font-size="12" fill="#263238">genomic_toolkit</text>
+<text x="70" y="738" font-size="12" fill="#263238">sizes markdup frip</text>
+<text x="260" y="722" font-size="12" fill="#263238">JSON on stdout (--json)</text>
+<text x="480" y="722" font-size="12" fill="#263238">histogram TSV:</text>
+<text x="480" y="738" font-size="12" fill="#263238">--histogram FILE</text>
+<text x="680" y="722" font-size="12" fill="#263238">0 ok, 1 usage or system</text>
+<text x="680" y="738" font-size="12" fill="#263238">2 input shape: naming,</text>
+<text x="680" y="754" font-size="12" fill="#263238">order, nothing parsed</text>
+<text x="970" y="722" font-size="12" fill="#263238">no flag; OpenMP reads</text>
+<text x="970" y="738" font-size="12" fill="#263238">OMP_NUM_THREADS</text>
+<text x="970" y="754" font-size="12" fill="#263238">(wrapper leaves it unset)</text>
+<line x1="64" y1="764" x2="1164" y2="764" stroke="#CFD8DC"/>
+<text x="70" y="780" font-size="12" fill="#263238">cuttag_profiler</text>
+<text x="70" y="796" font-size="12" fill="#263238">profile | serve</text>
+<text x="260" y="780" font-size="12" fill="#263238">none: summary on stderr</text>
+<text x="480" y="780" font-size="12" fill="#263238">matrix.tsv, profile.tsv</text>
+<text x="480" y="796" font-size="12" fill="#263238">(or HTTP: serve)</text>
+<text x="680" y="780" font-size="12" fill="#263238">0 ok, 1 error</text>
+<text x="680" y="796" font-size="12" fill="#263238">2 every region skipped</text>
+<text x="970" y="780" font-size="12" fill="#263238">--threads N: wrapper</text>
+<text x="970" y="796" font-size="12" fill="#263238">passes it</text>
+<line x1="64" y1="806" x2="1164" y2="806" stroke="#CFD8DC"/>
+<text x="70" y="822" font-size="12" fill="#263238">pto-peaks</text>
+<text x="260" y="822" font-size="12" fill="#263238">none: counts on stderr</text>
+<text x="480" y="822" font-size="12" fill="#263238">narrowPeak: --out FILE</text>
+<text x="480" y="838" font-size="12" fill="#263238">(default stdout)</text>
+<text x="680" y="822" font-size="12" fill="#263238">0 ok, 1 usage or I/O</text>
+<text x="680" y="838" font-size="12" fill="#263238">2 unsorted, contig missing,</text>
+<text x="680" y="854" font-size="12" fill="#263238">bad field</text>
+<text x="970" y="822" font-size="12" fill="#263238">single-threaded;</text>
+<text x="970" y="838" font-size="12" fill="#263238">no thread option</text>
+<rect x="1196" y="620" width="660" height="274" rx="4" fill="#FFFFFF" stroke="#B0BEC5" stroke-width="1.5"/>
+<text x="1210" y="642" font-size="16" font-weight="700" fill="#37474F" text-anchor="start">D   BUILD, PACKAGE, PUBLISH</text>
+<rect x="64" y="908" width="1792" height="140" rx="4" fill="#FFF6F6" stroke="#C62828" stroke-width="2.5" stroke-dasharray="8 4"/>
+<text x="78" y="930" font-size="16" font-weight="700" fill="#7F1D1D" text-anchor="start">TRUST BOUNDARY   127.0.0.1 only   Host, then Origin, then token, in one pre-routing handler for /api/*</text>
+<text x="82" y="216" font-size="12" fill="#37474F">PYTHON API</text>
+<rect x="200" y="168" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="212" y="190" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">pto.frip(...)</text>
+<text x="212" y="211" font-size="13" fill="#1B4D20" text-anchor="start">7 functions</text>
+<text x="212" y="228" font-size="13" fill="#1B4D20" text-anchor="start">None kwargs omitted</text>
+<rect x="430" y="168" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="442" y="190" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">run_tool</text>
+<text x="442" y="211" font-size="13" fill="#1B4D20" text-anchor="start">resolve binary</text>
+<text x="442" y="228" font-size="13" fill="#1B4D20" text-anchor="start">argv, shell=False</text>
+<rect x="660" y="168" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="672" y="190" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">Popen + wait4</text>
+<text x="672" y="211" font-size="13" fill="#1B4D20" text-anchor="start">os.wait4: rc + max RSS</text>
+<text x="672" y="228" font-size="13" fill="#1B4D20" text-anchor="start">stdio to temp files</text>
+<rect x="890" y="168" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="902" y="190" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">result</text>
+<text x="902" y="211" font-size="13" fill="#1B4D20" text-anchor="start">rc 0: Result</text>
+<text x="902" y="228" font-size="13" fill="#1B4D20" text-anchor="start">rc 2: InvalidInput</text>
+<text x="902" y="245" font-size="13" fill="#1B4D20" text-anchor="start">else ToolError</text>
+<text x="82" y="376" font-size="12" fill="#37474F">pto-core</text>
+<rect x="200" y="328" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="212" y="350" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">pto-core frip</text>
+<text x="212" y="371" font-size="13" fill="#1B4D20" text-anchor="start">argparse subcommand</text>
+<text x="212" y="388" font-size="13" fill="#1B4D20" text-anchor="start">--json optional</text>
+<rect x="430" y="328" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="442" y="350" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">cli._cmd_frip</text>
+<text x="442" y="371" font-size="13" fill="#1B4D20" text-anchor="start">calls pto.api.frip</text>
+<rect x="660" y="328" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="672" y="350" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">output</text>
+<text x="672" y="371" font-size="13" fill="#1B4D20" text-anchor="start">metrics: stdout</text>
+<text x="672" y="388" font-size="13" fill="#1B4D20" text-anchor="start">cost: stderr</text>
+<rect x="890" y="328" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="902" y="350" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">exit code</text>
+<text x="902" y="371" font-size="13" fill="#1B4D20" text-anchor="start">0 ok | 1 error</text>
+<text x="902" y="388" font-size="13" fill="#1B4D20" text-anchor="start">2 InvalidInput</text>
+<text x="902" y="405" font-size="13" fill="#1B4D20" text-anchor="start">141 broken pipe</text>
+<text x="82" y="536" font-size="12" fill="#37474F">exec / PATH</text>
+<rect x="200" y="488" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="212" y="510" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">pto-core exec</text>
+<text x="212" y="531" font-size="13" fill="#1B4D20" text-anchor="start">os.execv: no Python</text>
+<text x="212" y="548" font-size="13" fill="#1B4D20" text-anchor="start">frame remains</text>
+<rect x="430" y="488" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="442" y="510" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">bin-dir</text>
+<text x="442" y="531" font-size="13" fill="#1B4D20" text-anchor="start">prints the engine</text>
+<text x="442" y="548" font-size="13" fill="#1B4D20" text-anchor="start">directory</text>
+<rect x="660" y="488" width="210" height="96" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="672" y="510" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">PATH</text>
+<text x="672" y="531" font-size="13" fill="#1B4D20" text-anchor="start">export PATH=</text>
+<text x="672" y="548" font-size="13" fill="#1B4D20" text-anchor="start">$(pto-core bin-dir):$PATH</text>
+<rect x="890" y="488" width="210" height="96" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="902" y="510" font-size="16" font-weight="700" fill="#424242" text-anchor="start">shell, SLURM,</text>
+<text x="902" y="531" font-size="16" font-weight="700" fill="#424242" text-anchor="start">Nextflow</text>
+<text x="902" y="552" font-size="13" fill="#424242" text-anchor="start">bare tool names</text>
+<rect x="1220" y="176" width="190" height="88" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="1232" y="198" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">1  $PTO_BIN_DIR</text>
+<text x="1232" y="219" font-size="13" fill="#1B4D20" text-anchor="start">override; no reinstall</text>
+<rect x="1430" y="176" width="190" height="88" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="1442" y="198" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">2  pto/_vendor/bin</text>
+<text x="1442" y="219" font-size="13" fill="#1B4D20" text-anchor="start">wheel-vendored</text>
+<rect x="1640" y="176" width="190" height="88" rx="8" fill="#E6F4EA" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="1652" y="198" font-size="16" font-weight="700" fill="#1B4D20" text-anchor="start">3  $PATH</text>
+<text x="1652" y="219" font-size="13" fill="#1B4D20" text-anchor="start">shutil.which</text>
+<rect x="1220" y="296" width="610" height="84" rx="8" fill="#FDE8E8" stroke="#C62828" stroke-width="1.5"/>
+<text x="1232" y="318" font-size="16" font-weight="700" fill="#7F1D1D" text-anchor="start">none found: BinaryNotFound</text>
+<text x="1232" y="339" font-size="13" fill="#7F1D1D" text-anchor="start">lists the searched directories and prints the cmake build recipe</text>
+<rect x="1220" y="400" width="610" height="76" rx="8" fill="#FFFBEA" stroke="#E0B84C" stroke-width="1.5"/>
+<text x="1232" y="422" font-size="16" font-weight="700" fill="#5B4300" text-anchor="start">TOOLS = the four engines</text>
+<text x="1232" y="443" font-size="13" fill="#5B4300" text-anchor="start">a test fails if the wheel vendors a fifth binary that TOOLS lacks</text>
+<rect x="1220" y="492" width="610" height="96" rx="8" fill="#FFFBEA" stroke="#E0B84C" stroke-width="1.5"/>
+<text x="1232" y="514" font-size="16" font-weight="700" fill="#5B4300" text-anchor="start">thread budget</text>
+<text x="1232" y="535" font-size="13" fill="#5B4300" text-anchor="start">min(sched_getaffinity, cgroup quota, cpu_count), at least 1</text>
+<text x="1232" y="552" font-size="13" fill="#5B4300" text-anchor="start">passed as -t (fastq_stream) and --threads (cuttag_profiler) only</text>
+<text x="1232" y="569" font-size="13" fill="#5B4300" text-anchor="start">genomic_toolkit and pto-peaks get none; OMP_NUM_THREADS is not set</text>
+<rect x="1220" y="668" width="196" height="96" rx="8" fill="#EFE6FA" stroke="#6A3FA0" stroke-width="1.5"/>
+<text x="1232" y="690" font-size="16" font-weight="700" fill="#3F2266" text-anchor="start">cmake -S .</text>
+<text x="1232" y="711" font-size="13" fill="#3F2266" text-anchor="start">PTO_BUILD_* x5</text>
+<text x="1232" y="728" font-size="13" fill="#3F2266" text-anchor="start">PTO_CLOUD_BUILD off</text>
+<rect x="1428" y="668" width="196" height="96" rx="8" fill="#EFE6FA" stroke="#6A3FA0" stroke-width="1.5"/>
+<text x="1440" y="690" font-size="16" font-weight="700" fill="#3F2266" text-anchor="start">scikit-build-core</text>
+<text x="1440" y="711" font-size="13" fill="#3F2266" text-anchor="start">install-dir pto/_vendor</text>
+<text x="1440" y="728" font-size="13" fill="#3F2266" text-anchor="start">headers dropped</text>
+<rect x="1636" y="668" width="196" height="96" rx="8" fill="#EFE6FA" stroke="#6A3FA0" stroke-width="1.5"/>
+<text x="1648" y="690" font-size="16" font-weight="700" fill="#3F2266" text-anchor="start">cibuildwheel</text>
+<text x="1648" y="711" font-size="13" fill="#3F2266" text-anchor="start">cp312 pin, py3-none-*</text>
+<text x="1648" y="728" font-size="13" fill="#3F2266" text-anchor="start">doctor + pytest</text>
+<rect x="1220" y="784" width="196" height="96" rx="8" fill="#EFE6FA" stroke="#6A3FA0" stroke-width="1.5"/>
+<text x="1232" y="806" font-size="16" font-weight="700" fill="#3F2266" text-anchor="start">repair</text>
+<text x="1232" y="827" font-size="13" fill="#3F2266" text-anchor="start">delocate (macOS)</text>
+<text x="1232" y="844" font-size="13" fill="#3F2266" text-anchor="start">auditwheel (Linux)</text>
+<rect x="1428" y="784" width="196" height="96" rx="8" fill="#EFE6FA" stroke="#6A3FA0" stroke-width="1.5"/>
+<text x="1440" y="806" font-size="16" font-weight="700" fill="#3F2266" text-anchor="start">publish</text>
+<text x="1440" y="827" font-size="13" fill="#3F2266" text-anchor="start">v* tag -&gt; PyPI</text>
+<text x="1440" y="844" font-size="13" fill="#3F2266" text-anchor="start">OIDC, no token</text>
+<rect x="1636" y="784" width="196" height="96" rx="8" fill="#FFFBEA" stroke="#E0B84C" stroke-width="1.5"/>
+<text x="1648" y="806" font-size="16" font-weight="700" fill="#5B4300" text-anchor="start">vendored libs</text>
+<text x="1648" y="827" font-size="13" fill="#5B4300" text-anchor="start">macOS: libomp, libhts</text>
+<text x="1648" y="844" font-size="13" fill="#5B4300" text-anchor="start">Linux: libgomp, static</text>
+<text x="1648" y="861" font-size="13" fill="#5B4300" text-anchor="start">htslib</text>
+<rect x="88" y="952" width="200" height="88" rx="8" fill="#F4F4F4" stroke="#757575" stroke-width="1.5" stroke-dasharray="8 4"/>
+<text x="100" y="974" font-size="16" font-weight="700" fill="#424242" text-anchor="start">client</text>
+<text x="100" y="995" font-size="13" fill="#424242" text-anchor="start">browser or curl</text>
+<text x="100" y="1012" font-size="13" fill="#424242" text-anchor="start">URL carries ?t=TOKEN</text>
+<rect x="308" y="952" width="200" height="88" rx="8" fill="#FDE8E8" stroke="#C62828" stroke-width="1.5"/>
+<text x="320" y="974" font-size="16" font-weight="700" fill="#7F1D1D" text-anchor="start">Host  421</text>
+<text x="320" y="995" font-size="13" fill="#7F1D1D" text-anchor="start">loopback name + port</text>
+<text x="320" y="1012" font-size="13" fill="#7F1D1D" text-anchor="start">defeats DNS rebinding</text>
+<rect x="528" y="952" width="200" height="88" rx="8" fill="#FDE8E8" stroke="#C62828" stroke-width="1.5"/>
+<text x="540" y="974" font-size="16" font-weight="700" fill="#7F1D1D" text-anchor="start">Origin  403</text>
+<text x="540" y="995" font-size="13" fill="#7F1D1D" text-anchor="start">absent ok; present must</text>
+<text x="540" y="1012" font-size="13" fill="#7F1D1D" text-anchor="start">be this server</text>
+<rect x="748" y="952" width="200" height="88" rx="8" fill="#FDE8E8" stroke="#C62828" stroke-width="1.5"/>
+<text x="760" y="974" font-size="16" font-weight="700" fill="#7F1D1D" text-anchor="start">token  401</text>
+<text x="760" y="995" font-size="13" fill="#7F1D1D" text-anchor="start">?t= or Bearer</text>
+<text x="760" y="1012" font-size="13" fill="#7F1D1D" text-anchor="start">constant-time compare</text>
+<rect x="968" y="952" width="200" height="88" rx="8" fill="#FDE8E8" stroke="#C62828" stroke-width="1.5"/>
+<text x="980" y="974" font-size="16" font-weight="700" fill="#7F1D1D" text-anchor="start">body gates</text>
+<text x="980" y="995" font-size="13" fill="#7F1D1D" text-anchor="start">&lt;= 1 MiB: 413</text>
+<text x="980" y="1012" font-size="13" fill="#7F1D1D" text-anchor="start">JSON type: 415</text>
+<rect x="1188" y="952" width="200" height="88" rx="8" fill="#FDE8E8" stroke="#C62828" stroke-width="1.5"/>
+<text x="1200" y="974" font-size="16" font-weight="700" fill="#7F1D1D" text-anchor="start">resolve_input</text>
+<text x="1200" y="995" font-size="13" fill="#7F1D1D" text-anchor="start">under data root: 400</text>
+<text x="1200" y="1012" font-size="13" fill="#7F1D1D" text-anchor="start">open once, on the fd</text>
+<rect x="1408" y="952" width="200" height="88" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1420" y="974" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">compute</text>
+<text x="1420" y="995" font-size="13" fill="#0D3B72" text-anchor="start">compute_matrix</text>
+<text x="1420" y="1012" font-size="13" fill="#0D3B72" text-anchor="start">HTTP pool = 16 threads</text>
+<rect x="1628" y="952" width="200" height="88" rx="8" fill="#E3F0FD" stroke="#1565C0" stroke-width="1.5"/>
+<text x="1640" y="974" font-size="16" font-weight="700" fill="#0D3B72" text-anchor="start">cache + fetch</text>
+<text x="1640" y="995" font-size="13" fill="#0D3B72" text-anchor="start">MatrixCache 512 MiB, 4</text>
+<text x="1640" y="1012" font-size="13" fill="#0D3B72" text-anchor="start">GET /api/matrix?token=M</text>
+<path d="M410,216 L430,216" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M640,216 L660,216" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M870,216 L890,216" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M410,376 L430,376" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M640,376 L660,376" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M870,376 L890,376" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M410,536 L430,536" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M640,536 L660,536" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M870,536 L890,536" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1410,220 L1430,220" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1620,220 L1640,220" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1735,264 L1735,280 L1738,280 L1738,296" fill="none" stroke="#C62828" stroke-width="1.6" stroke-dasharray="2 4" marker-end="url(#a-error)"/>
+<path d="M1416,716 L1428,716" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1624,716 L1636,716" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1734,764 L1734,774 L1318,774 L1318,784" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1416,832 L1428,832" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M288,996 L308,996" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M508,996 L528,996" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M728,996 L748,996" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M948,996 L968,996" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1168,996 L1188,996" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1388,996 L1408,996" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+<path d="M1608,996 L1628,996" fill="none" stroke="#1565C0" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a-control)"/>
+</svg>
